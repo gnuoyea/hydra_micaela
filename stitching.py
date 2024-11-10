@@ -1,6 +1,11 @@
 import numpy as np
 import h5py
 
+'''
+TO-DO: (during stitching process)
+NEED TO MAP ALL THE VESICLE COORDS INTO NEW COORDS FOR STITCHED FILES - create a dict linking the new unique id to a tuple
+'''
+
 #current spreadsheet as of 11-09; fill in rest later
 #xyz
 boxes = {38: ((40872, 64528, 625), (116504, 77180, 1786)), 
@@ -41,7 +46,7 @@ def stitch(neuron_id_1):
 	max_z = max(boxes[nid][1][2] for nid in to_stitch)
 
 	#create friends blank h5 file
-	friends_filename = f"neuron{neuron_id_1:02}_friends.h5" #IMPT FILE 1
+	friends_filename = f"neuron{neuron_id_1:02}_friends.h5" # FILE 1
 	with h5py.File(friends_filename, 'w') as f:
 		shape = (max_x-min_x, max_y-min_y, max_z-min_z)
 		friends_data = f.create_dataset("main", shape=shape, dtype=np.uint8)
@@ -57,7 +62,7 @@ def stitch(neuron_id_1):
 	#neuron friends data is all loaded
 
 	#create vesicles blank h5 file (does this need to be scaled / change res?)
-	vesicles_filename = f"neuron{neuron_id_1:02}_ALL_vesicles.h5" #vesicles for all the adjacent neurons too #IMPT FILE 2
+	vesicles_filename = f"neuron{neuron_id_1:02}_ALL_vesicles.h5" #vesicles for all the adjacent neurons too # FILE 2
 
 	with h5py.File(vesicles_filename, 'w') as f:
 		shape = (max_x-min_x, max_y-min_y, max_z-min_z)
@@ -78,24 +83,12 @@ def stitch(neuron_id_1):
 def ranges_overlap(a, b):
 	a1, a2 = a
 	b1, b2 = b
-	'''
-	if(b1>a1 and b1<a2):
-		return True
-	if(a1>b1 and a1<b2):
-		return True
-	return False
-	'''
+
 	if(b1<a2 and a1<b2):
 		return True
 	return False
 
 if __name__ == "__main__":
-	'''
-	#initial adjacency list testing
-	l = stitch(38) #KR5
-	print(l)
-	'''
-
 	stitch(38) #generate files
 
 
