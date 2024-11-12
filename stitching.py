@@ -6,6 +6,8 @@ TO-DO: (during stitching process)
 NEED TO MAP ALL THE VESICLE COORDS INTO NEW COORDS FOR STITCHED FILES - create a dict linking the new unique id to a tuple
 '''
 
+#add a data loader method
+
 #current spreadsheet as of 11-09; fill in rest later
 #xyz
 boxes = {38: ((40872, 64528, 625), (116504, 77180, 1786)), 
@@ -57,7 +59,7 @@ def stitch(neuron_id_1):
 			with h5py.File(f"neuron{nid:02}_mask.h5", 'r') as f:
 				loaded_neuron = f["main"][:] #zyx
 			#translated to zyx
-			friends_data[boxes[nid[0][2]]-min_z:boxes[nid[1][2]]-min_z, boxes[nid[0][1]]-min_y:boxes[nid[1][1]]-min_y, boxes[nid[0][0]]-min_x:boxes[nid[1][0]]-min_x] =
+			friends_data[boxes[nid][0][2]-min_z:boxes[nid][1][2]-min_z, boxes[nid][0][1]-min_y:boxes[nid][1][1]-min_y, boxes[nid][0][0]-min_x:boxes[nid][1][0]-min_x] =
 			loaded_neuron[:,:,:]
 	#neuron friends data is all loaded
 
@@ -74,7 +76,7 @@ def stitch(neuron_id_1):
 			with h5py.File(f"neuron{nid:02}_vesicles.h5", 'r') as f:
 				loaded_vesicles = f["main"][:] #zyx
 			#translated to zyx
-			vesicles_data[boxes[nid[0][2]]-min_z:boxes[nid[1][2]]-min_z, boxes[nid[0][1]]-min_y:boxes[nid[1][1]]-min_y, boxes[nid[0][0]]-min_x:boxes[nid[1][0]]-min_x] =
+			vesicles_data[boxes[nid][0][2]-min_z:boxes[nid][1][2]-min_z, boxes[nid][0][1]-min_y:boxes[nid][1][1]-min_y, boxes[nid][0][0]-min_x:boxes[nid][1][0]-min_x] =
 			loaded_vesicles[:,:,:]
 	#neuron ALL vesicles data is all loaded
 

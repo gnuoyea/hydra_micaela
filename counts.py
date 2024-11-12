@@ -6,12 +6,14 @@ from scipy.ndimage import gaussian_filter
 from skimage.measure import label, regionprops
 import os
 
+#add global data cache or use memmap? for neurons & vesicles
+
 #returns neurons (neuron + "adjacent" neurons) and corresponding vesicles - files are all in the +adj file shape
 def load_stitched_data(nid):
-	with h5py.File(f"neuron{neuron_id_1:02}_friends.h5", 'r') as f:
+	with h5py.File(f"neuron{nid:02}_friends.h5", 'r') as f:
 		friends = f["main"][:]
 
-	with h5py.File(f"neuron{neuron_id_1:02}_ALL_vesicles.h5", 'r') as f:
+	with h5py.File(f"neuron{nid:02}_ALL_vesicles.h5", 'r') as f:
 		vesicles= f["main"][:]
 
 	return neurons, vesicles
@@ -25,7 +27,8 @@ def calculate_vesicles_within(mask, vesicles):
 
 	num_vesicles_within = 0
 
-	labeled_vesicles = label(vesicle_data) #FOR STITCHED FILE, VESICLE LABELS CURRENTLY NOT UNIQUE (will fix)
+	labeled_vesicles = label(vesicles) #FOR STITCHED FILE, VESICLE LABELS CURRENTLY NOT UNIQUE (will fix in stitching.py)
+	#TEMP FIX with no type counts: can change vesicles to binary file, then relabel everything
 	vesicle_coords = np.column_stack(np.nonzero(labeled_vesicles))
 
 	#optimized
@@ -66,31 +69,35 @@ def extract_perimeter(expanded_mask, original_mask):
 	return perimeter_only_mask
 
 
-#return the intersection of all the given masks in the list, assume all same shape
+#return the intersection of all the given masks in the list, assume all same shape (add error checking later)
 def mask_intersection(mask_list, shape):
+	'''
 	intersection = np.zeros(shape, dtype=bool)
 	for mask in mask_list:
 		binary_mask = (mask>=1).astype(int)
 		intersection = intersection & binary_mask
+	'''
+	intersection = np.bitwise_and.reduce(mask_list)
 
 	return intersection
 
 
 #graph 1 column C
-def vesicles_within_neuron(neurons, vesicles):
+def vesicles_within_neuron(neurons, vesicles, nid):
     neuron_mask = (neurons == nid) #mask for single neuron, in +adj mask dims
-    return calculate_vesicles_within(neuron_mask, nid)
+    return calculate_vesicles_within(neuron_mask, vesicles)
 
 
  #graph 1 column E (and all of graph 2)
- def total_within_perimeter(neurons, vesicles, nid, threshold_nm, res):
- 	#get singular neuron (for nid)
+ #total within the perimeter of the given nid only
+def total_within_perimeter(neurons, vesicles, nid, threshold_nm, res):
+	#get singular neuron (for nid)
  	singular_neuron = (neurons == nid)
 
  	expanded_mask = expand_mask(singular_neuron, threshold_nm, res) #RES IN XYZ
- 	perimeter_only = extract_perimeter(expanded_mask, original_mask)
+ 	perimeter_only = extract_perimeter(expanded_mask, singular_neuron)
 
- 	return calculate_vesicles_within(perimeter_only, nid)
+ 	return calculate_vesicles_within(perimeter_only, vesicles)
 
 
 #graphs 1, 2, 3
@@ -99,6 +106,7 @@ def calculate_volume_nm(mask, res):
 	binary_mask = (mask>=1).astype(int)
 	volume_voxels = np.sum(binary_mask)
 	volume_nm = volume_voxels * (res[0]*res[1]*res[2])
+	return volume_nm
 
 
 #return the total overlaps count & overlaps mask volume - later use overlaps mask vol for rand region
@@ -108,9 +116,7 @@ def near_another_neuron(neurons, vesicles, nid, threshold_nm, res):
 	adjacent_neurons = []
 
 	#construct adjacent_neurons
-    for label in neurons:
-    	if(label!=nid):
-    		adjacent_neurons.append(label)
+    adjacent_neurons = [label for label in np.unique(neurons) if label!=nid]
 
 	all_masks = [] #to calculate the intersection of later
 
@@ -137,7 +143,7 @@ if __name__ == "__main__":
 
 	nid = 38
 	neurons, vesicles = load_stitched_data(nid)
-	print(f"within neuron {nid}: ", vesicles_within_neuron(neurons, vesicles))
+	print(f"within neuron {nid}: ", vesicles_within_neuron(neurons, vesicles, nid))
 	print(f"within perimeter for neuron {nid}: ", total_within_perimeter(neurons, vesicles, nid, threshold_nm = 1000, res = res_xyz)) #1 micron
 	overlaps_count, overlaps_volume = near_another_neuron(neurons, vesicles, nid, threshold_nm = 1000, res = res_xyz)
 	print(f"within perimeter for neuron {nid} & near another neuron: ", overlaps_count) #1 micron
