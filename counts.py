@@ -6,56 +6,78 @@ from scipy.ndimage import gaussian_filter
 from skimage.measure import label, regionprops
 import os
 
-#add global data cache or use memmap? for neurons & vesicles
+cache = {}
 
-#returns neurons (neuron + "adjacent" neurons) and corresponding vesicles - files are all in the +adj file shape
-def load_stitched_data(nid):
-	with h5py.File(f"neuron{nid:02}_friends.h5", 'r') as f:
-		friends = f["main"][:]
+#all files should be in the shape of the neuron mask file for the neuron name eg. "KR5"
+def load_data(name):
+	with h5py.File(f"neuron_{name}_box_30-8-8.h5", 'r') as f: #stitched high res data mask, contains everything w segids
+		cache["box"] = f["main"][:]
 
-	with h5py.File(f"neuron{nid:02}_ALL_vesicles.h5", 'r') as f:
-		vesicles= f["main"][:]
+	with h5py.File(f"lv_{name}_30-8-8.h5", 'r') as f: #high res large vesicles data for [name]
+		cache["lv"] = f["main"][:]
 
-	return neurons, vesicles
+	with h5py.File(f"sv_{name}_30-8-8.h5", 'r') as f: #high res small vesicles data for [name]
+		cache["sv"] = f["main"][:]
 
 
-#calculate num of vesicles within any given mask 
-#takes in mask and corresponding vesicles
+#calculate num of vesicles within any given mask; takes in mask and corresponding vesicles file
 def calculate_vesicles_within(mask, vesicles):
 	#switch to a binary mask
 	binary_mask = (mask>=1).astype(int)
 
 	num_vesicles_within = 0
 
-	labeled_vesicles = label(vesicles) #FOR STITCHED FILE, VESICLE LABELS CURRENTLY NOT UNIQUE (will fix in stitching.py)
-	#TEMP FIX with no type counts: can change vesicles to binary file, then relabel everything
+	#labeled_vesicles = label(vesicles)
+	labeled_vesicles = vesicles #no need to relabel
 	vesicle_coords = np.column_stack(np.nonzero(labeled_vesicles))
 
-	#optimized
-	vesicle_coords_within_mask = vesicle_coords[binary_mask[tuple(vesicle_coords.T)] == 1]
-	num_vesicles_within = len(vesicle_coords_within_mask)
+	unique_labels = np.unique(labeled_vesicles)
+	num_labels = len(unique_labels) - 1 #minus the bg label
+
+	vesicles_within_mask = np.zeros(num_labels, dtype=bool)
+	vesicle_coords = np.column_stack(np.nonzero(labeled_vesicles))
+	mask_values = binary_mask[vesicle_coords[:, 0], vesicle_coords[:, 1], vesicle_coords[:, 2]]
+	vesicles_within_mask = np.unique(labeled_vesicles[vesicle_coords[:, 0], vesicle_coords[:, 1], vesicle_coords[:, 2]][mask_values == 1])
+	num_vesicles_within = len(vesicles_within_mask)
 
 	return num_vesicles_within
 
 
-#currently unused - assuming neurons and vesicle files have same res
+#currently unused since neurons and vesicle files now have same res
 def convert_coords(original_coords, original_shape, original_res, target_shape, target_res):
     relative_coord = np.array(original_coords) / np.array(original_shape)
     target_coord = np.round(relative_coord * np.array(target_shape)).astype(int)
     return target_coord
 
 
-def expand_mask(original_mask, threshold_nm, res): #threshold in physical units, res in xyz
+def expand_mask(original_mask, threshold_nm, res): #threshold in physical units, res in zyx
 	expanded_mask = np.copy(original_mask)
 
-	dt = distance_transform_edt(original_mask, sampling=res) #in physical units
-	doubled_perimeter = dt <= threshold_nm #all in nm
-	expanded_mask[doubled_perimeter] = 1
+	dt = edt.edt(1 - original_mask, anisotropy=(res[2],res[1],res[0])) #needs to be in xyz by default for edt
+	perimeter = dt <= threshold_nm #all in nm
+	expanded_mask[perimeter] = 1
 
 	expanded_mask_binary = (expanded_mask>=1).astype(int)
 	return expanded_mask_binary
 
+#for usage for a singular mask, docked vesicle counts
+def erode_mask(original_mask, threshold_nm, res):
+	eroded_mask = np.copy(original_mask)
 
+	dt = edt.edt(1 - original_mask, anisotropy=(res[2],res[1],res[0])) #needs to be in xyz by default for edt
+	perimeter = dt <= threshold_nm #all in nm; double perim
+	eroded_mask[perimeter] = 0
+
+	eroded_mask_binary = (eroded_mask>=1).astype(int)
+	return eroded_mask_binary
+
+
+def docked_vesicles(original_mask, vesicles, threshold_nm, res): #use 250nm
+	eroded_mask = erode_mask(original_mask, threshold_nm, res)
+	return calculate_vesicles_within(eroded_mask, vesicles), calculate_volume_nm(eroded_mask, res)
+
+
+#for visualization uses only
 def extract_perimeter(expanded_mask, original_mask):
 	#expanded mask should already be binary
 	#change original mask to binary
@@ -69,16 +91,9 @@ def extract_perimeter(expanded_mask, original_mask):
 	return perimeter_only_mask
 
 
-#return the intersection of all the given masks in the list, assume all same shape (add error checking later)
-def mask_intersection(mask_list, shape):
-	'''
-	intersection = np.zeros(shape, dtype=bool)
-	for mask in mask_list:
-		binary_mask = (mask>=1).astype(int)
-		intersection = intersection & binary_mask
-	'''
+#takes in a list of masks, outputs a binary mask
+def mask_intersection(mask_list): #assume same size files, assume list has size at least 1
 	intersection = np.bitwise_and.reduce(mask_list)
-
 	return intersection
 
 
@@ -86,18 +101,6 @@ def mask_intersection(mask_list, shape):
 def vesicles_within_neuron(neurons, vesicles, nid):
     neuron_mask = (neurons == nid) #mask for single neuron, in +adj mask dims
     return calculate_vesicles_within(neuron_mask, vesicles)
-
-
- #graph 1 column E (and all of graph 2)
- #total within the perimeter of the given nid only
-def total_within_perimeter(neurons, vesicles, nid, threshold_nm, res):
-	#get singular neuron (for nid)
- 	singular_neuron = (neurons == nid)
-
- 	expanded_mask = expand_mask(singular_neuron, threshold_nm, res) #RES IN XYZ
- 	perimeter_only = extract_perimeter(expanded_mask, singular_neuron)
-
- 	return calculate_vesicles_within(perimeter_only, vesicles)
 
 
 #graphs 1, 2, 3
@@ -120,11 +123,9 @@ def near_another_neuron(neurons, vesicles, nid, threshold_nm, res):
 
 	all_masks = [] #to calculate the intersection of later
 
-	#get current perimeter mask for current neuron and append to the all_masks list
+	#get mask for current neuron and append to the all_masks list
 	current_neuron = (neurons == nid)
-	expanded_mask = expand_mask(current_neuron, threshold_nm, res) #current neuron
- 	perimeter_only = extract_perimeter(expanded_mask, original_mask)
-	all_masks.append(perimeter_only)
+	all_masks.append(current_neuron)
 
 	for adjacent_neuron in adjacent_neurons:
 		adjacent_mask = (neurons == adjacent_neuron)
@@ -139,15 +140,22 @@ def near_another_neuron(neurons, vesicles, nid, threshold_nm, res):
 
 
 if __name__ == "__main__":
-	res_xyz = (8,8,30)
-
+	res = (30,8,8)
+	name = "KR5"
 	nid = 38
-	neurons, vesicles = load_stitched_data(nid)
-	print(f"within neuron {nid}: ", vesicles_within_neuron(neurons, vesicles, nid))
-	print(f"within perimeter for neuron {nid}: ", total_within_perimeter(neurons, vesicles, nid, threshold_nm = 1000, res = res_xyz)) #1 micron
-	overlaps_count, overlaps_volume = near_another_neuron(neurons, vesicles, nid, threshold_nm = 1000, res = res_xyz)
-	print(f"within perimeter for neuron {nid} & near another neuron: ", overlaps_count) #1 micron
-	print(f"volume (nm^3) of perimeter overlaps for neuron {nid} & adjacent expansions: ", overlaps_volume) #1 micron
+	threshold = 1000 #in nm, adjust as needed
+	docked_threshold = 250 #by default
+	load_data(name)
+
+	#example usage:
+
+	print(f"LV within neuron {name}: ", vesicles_within_neuron(cache["box"], cache["lv"], nid))
+	overlaps_count, overlaps_volume = near_another_neuron(cache["box"], cache["lv"], nid, threshold_nm = threshold, res = res)
+	print(f"LV within neuron {name} & within {threshold}nm of another neuron: ", overlaps_count)
+	print(f"Volume (in nm^3) of overlaps for neuron {name} and {threshold}nm: ", overlaps_volume)
+	num_docked, vol_eroded = docked_vesicles(((cache["box"])==nid), cache["lv"] docked_threshold, res)
+	print(f"LV docked vesicles for neuron {name} and threshold {docked_threshold}nm: ", num_docked)
+	print(f"Vol of eroded region for docked vesicles: ", vol_eroded)
 
 
 
