@@ -115,28 +115,28 @@ def calculate_volume_nm(mask, res):
 #return the total overlaps count & overlaps mask volume - later use overlaps mask vol for rand region
 #threshold in nm defines what "near" means
 def near_another_neuron(neurons, vesicles, nid, threshold_nm, res):
-	#list of everything in the adjacency chunk besides current nid
-	adjacent_neurons = []
+    #list of everything in the adjacency chunk besides current nid
+    adjacent_neurons = []
 
 	#construct adjacent_neurons
     adjacent_neurons = [label for label in np.unique(neurons) if label!=nid]
 
-	all_masks = [] #to calculate the intersection of later
+    all_masks = [] #to calculate the intersection of later
 
 	#get mask for current neuron and append to the all_masks list
-	current_neuron = (neurons == nid)
-	all_masks.append(current_neuron)
+    current_neuron = (neurons == nid)
+    all_masks.append(current_neuron)
 
-	for adjacent_neuron in adjacent_neurons:
-		adjacent_mask = (neurons == adjacent_neuron)
-		expanded_adjacent = expand_mask(adjacent_mask, threshold_nm, res)
-		all_masks.append(adjacent_mask)
+    for adjacent_neuron in adjacent_neurons:
+        adjacent_mask = (neurons == adjacent_neuron)
+        expanded_adjacent = expand_mask(adjacent_mask, threshold_nm, res)
+        all_masks.append(adjacent_mask)
 
-	overlaps_mask = mask_intersection(all_masks, neurons.shape)
-	overlaps_count = calculate_vesicles_within(overlaps_mask, vesicles)
-	overlaps_volume = calculate_volume_nm(overlaps_mask, res)
+    overlaps_mask = mask_intersection(all_masks, neurons.shape)
+    overlaps_count = calculate_vesicles_within(overlaps_mask, vesicles)
+    overlaps_volume = calculate_volume_nm(overlaps_mask, res)
 
-	return overlaps_count, overlaps_volume
+    return overlaps_count, overlaps_volume
 
 
 if __name__ == "__main__":
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 	overlaps_count, overlaps_volume = near_another_neuron(cache["box"], cache["lv"], nid, threshold_nm = threshold, res = res)
 	print(f"LV within neuron {name} & within {threshold}nm of another neuron: ", overlaps_count)
 	print(f"Volume (in nm^3) of overlaps for neuron {name} and {threshold}nm: ", overlaps_volume)
-	num_docked, vol_eroded = docked_vesicles(((cache["box"])==nid), cache["lv"] docked_threshold, res)
+	num_docked, vol_eroded = docked_vesicles(((cache["box"])==nid), cache["lv"], docked_threshold, res)
 	print(f"LV docked vesicles for neuron {name} and threshold {docked_threshold}nm: ", num_docked)
 	print(f"Vol of eroded region for docked vesicles: ", vol_eroded)
 
