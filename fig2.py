@@ -3,7 +3,6 @@ import os
 import sys
 import glob
 # remote dependencies
-import edt
 import tqdm
 from scipy.ndimage import distance_transform_edt as edt
 import numpy as np
@@ -18,6 +17,16 @@ overlap between the enlarged neuron 1 and neuron 2. Given a specific thickness,
 compute the number of small vesicles in the overlapping region of neuron 2 and
 a randomly selected non-soma region of neuron 2
 """
+
+def remove_dust(vol, thres):
+    # binary erosion
+    vol = edt(vol)
+    vol = np.where(vol >= thres, 1, 0).astype(np.uint16)
+    # binary dilation
+    vol = 1 - vol
+    vol = edt(vol)
+    vol = np.where(vol <= thres, 1, 0).astype(np.uint16)
+    return vol
 
 if __name__ == '__main__':
     # usage message
@@ -42,10 +51,10 @@ python {sys.argv[0]} neuron soma lv sv thres volume
 
     res = [30, 32, 32] # assume resolution, in [z, y, x] with units of nm
 
-    neuron = np.clip(readvol(neuron), 0, 1).astype(np.uint32)
+    neuron = np.clip(readvol(neuron), 0, 1).astype(np.uint32)[:, ::4, ::4]
     soma = np.clip(readvol(soma), 0, 1)
-    lv = readvol(lv)
-    sv = readvol(sv)
+    lv = readvol(lv)[:, ::4, ::4]
+    sv = readvol(sv)[:, ::4, ::4]
     thres = int(thres)
     volume = int(volume)
 
@@ -53,6 +62,10 @@ python {sys.argv[0]} neuron soma lv sv thres volume
     dt_neuron = edt(neuron-soma)
     eroded_neuron = np.where(dt_neuron >= thres, 1, 0).astype(np.uint16)
     neuron_border = np.clip(neuron - eroded_neuron, 0, 1) * (1 - soma)
+
+    # remove (most of) soma and dendrites
+    cropped = remove_dust(neuron-soma, 10)
+    neuron_border = cropped * neuron_border
 
     # randomly sample nonsoma_eroded to find a keypoint that works
     num_samples = 1000000
@@ -67,6 +80,7 @@ python {sys.argv[0]} neuron soma lv sv thres volume
     # expand region until sufficient volume
     radius = int(np.ceil(np.cbrt(volume)))
     while True:
+        print(radius)
         if neuron_border[z-radius:z+radius, y-radius:y+radius, x-radius:x+radius].sum() >= volume:
             break
         else:
