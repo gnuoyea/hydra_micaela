@@ -11,8 +11,8 @@ from connectomics.data.utils.data_io import readvol, savevol
 
 if __name__ == '__main__':
     try:
-        neuron= sys.argv[1] # should have resolution [30, 32, 32]
-        neuron = np.clip(readvol(neuron), 0, 1)# [:, ::4, ::4]
+        neuron_name= sys.argv[1] # should have resolution [30, 32, 32]
+        neuron = np.clip(readvol(neuron_name), 0, 1)
     except Exception as e:
         raise e
 
@@ -20,4 +20,4 @@ if __name__ == '__main__':
     neuron_border = ((neuron_edt>0) * (neuron_edt<=1)).astype(np.uint16)
     voxels = int(neuron_border.sum())
 
-    print(f'{neuron} surface area (sq. nm): {voxels*32**2}')
+    print(f'{neuron_name} surface area (sq. nm): {voxels*32**2}')
