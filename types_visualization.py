@@ -4,6 +4,7 @@ import sys
 import yaml
 import argparse
 
+#generates color coded vesicle files
 
 cache = {}
 D0 = '/data/projects/weilab/dataset/hydra/results/'
@@ -15,6 +16,7 @@ D5 = '/data/rothmr/hydra/color_coded/' #output dir for files
 def load_data(name):
 	with h5py.File(f"{D0}vesicle_big_{name}_30-8-8.h5", "r") as f:
 		cache["vesicles"] = f["main"][:]
+	print("done loading data")
 
 
 def read_txt_to_dict(file_path):
@@ -42,8 +44,10 @@ def generate_color_coded(vesicles, d):
 	v = np.zeros(vesicles.shape, dtype=vesicles.dtype) #new file
 
 	#first relabel for vesicles 1, 2
-	v[vesicles==1] = d[1]
-	v[vesicles==2] = d[2]
+	if np.any(vesicles == 1):
+		v[vesicles==1] = d[1]
+	if np.any(vesicles == 2):
+		v[vesicles==2] = d[2]
 
 	print("checkpoint 1")
 
@@ -55,6 +59,8 @@ def generate_color_coded(vesicles, d):
 			v[vesicles==label] = new_label
 	print("loop done")
 	return v
+
+#write method to combine 
 
 
 #doesn't ever load full data
@@ -94,10 +100,11 @@ if __name__ == "__main__":
 
 
 	if(chunking):
-		current_chunk = 0
+		current_chunk = 7
 		path = f"{D0}vesicle_big_{name}_30-8-8.h5"
 		with h5py.File(path, 'r') as f:
-			output = np.zeros(shape=f["main"].shape, dtype=f["main"].dtype) #initialize the full output thing
+			shape=f["main"].shape
+			dtype=f["main"].dtype
 
 		while(current_chunk!=num_chunks): #runs [num_chunk] times
 			chunk_length = load_chunks(name, current_chunk, num_chunks)
@@ -120,19 +127,30 @@ if __name__ == "__main__":
 
 			#cases for last chunk or not + insert chunk into place
 			if(current_chunk!=num_chunks-1): #not last chunk
-				output[:, y_start:(current_chunk+1)*chunk_length, :] = color_coded_chunk
+				with h5py.File(f"{D5}{name}_color_coded.h5", "a") as f:
+					if(current_chunk == 0):  # create dataset for the first chunk
+						f.create_dataset("main", shape=shape, dtype=dtype)
+					f["main"][:, y_start:(current_chunk + 1) * chunk_length, :] = color_coded_chunk
+				#output[:, y_start:(current_chunk+1)*chunk_length, :] = color_coded_chunk
+
 			else: #last chunk
-				output[:, y_start:, :] = color_coded_chunk
+				with h5py.File(f"{D5}{name}_color_coded.h5", "a") as f:
+					f["main"][:, y_start:, :] = color_coded_chunk
+				#output[:, y_start:, :] = color_coded_chunk
 
 			current_chunk+=1
+
+			del chunk
+			del color_coded_chunk
 
 		#save the output file to an h5
 		print("done generating color coded file")
 
+		'''
 		with h5py.File(f"{D5}{name}_color_coded.h5", "w") as f:
 			f.create_dataset("main", shape=output.shape, data=output)
 			print(f"saved as {name}_color_coded.h5")
-
+		'''
 
 	else:
 		load_data(name)

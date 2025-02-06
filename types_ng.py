@@ -7,6 +7,8 @@ from contextlib import closing
 import yaml
 import os
 import gc
+from PIL import Image
+import matplotlib.pyplot as plt
 
 
 bbox = np.loadtxt('/data/projects/weilab/dataset/hydra/mask_mip1/bbox.txt').astype(int)
@@ -16,10 +18,23 @@ cache = {}
 
 #only store one at a time
 def load_data(name):
-    with h5py.File(f"color_coded/{name}_color_coded.h5", "r") as f:
-        cache["vesicles"] = np.array(f["main"])
-    with h5py.File(f"/data/projects/weilab/dataset/hydra/results/neuron_{name}_30-32-32.h5") as f:
-        cache["mask"] = np.array(f["main"])
+    if(name=="SHL17"): #fixing too large bbox
+        with h5py.File(f"color_coded/{name}_color_coded.h5", "r") as f:
+            cache["vesicles"] = np.array(f["main"][:, 4000:, :2400][:,::8,::8]) #30-8-8
+        with h5py.File(f"/data/projects/weilab/dataset/hydra/results/neuron_{name}_30-32-32.h5") as f:
+            cache["mask"] = np.array(f["main"][:, 1000:, :600][:,::2,::2]) #30-32-32
+        #load SV
+        with h5py.File(f"/data/projects/weilab/dataset/hydra/results/vesicle_small_{name}_30-8-8.h5") as f:
+            cache["sv"] = np.array(f["main"][:, 4000:, :2400][:,::8,::8]) #30-8-8
+
+    else:
+        with h5py.File(f"color_coded/{name}_color_coded.h5", "r") as f:
+            cache["vesicles"] = np.array(f["main"][:][:,::8,::8])
+        with h5py.File(f"/data/projects/weilab/dataset/hydra/results/neuron_{name}_30-32-32.h5") as f:
+            cache["mask"] = np.array(f["main"][:][:,::2,::2])
+        #load SV
+        with h5py.File(f"/data/projects/weilab/dataset/hydra/results/vesicle_small_{name}_30-8-8.h5") as f:
+            cache["sv"] = np.array(f["main"][:][:,::8,::8]) #30-8-8
 
 def find_free_port():
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
@@ -42,8 +57,12 @@ res1 = neuroglancer.CoordinateSpace(
 res2 = neuroglancer.CoordinateSpace(
         names=['z','y','x'],
         units=['nm', 'nm', 'nm'],
-        #scales=[30,8,8])
         scales=[30,16,16])
+
+res3 = neuroglancer.CoordinateSpace(
+        names=['z','y','x'],
+        units=['nm', 'nm', 'nm'],
+        scales=[30,32,32])
 
 
 def ngLayer(data,res,oo=[0,0,0],tt='segmentation'):
@@ -75,58 +94,67 @@ def read_yml(filename):
     return data
 
 #find the min bbox coord (bottom left corner) for this neuron, return as list of 3 coords
-def get_offset(name):
+def get_offset(name): #returns in 30-8-8
     nid = neuron_name_to_id(name)[0]
     bb = bbox[bbox[:,0]==nid, 1:][0]
-    #print("full bb: ", bb)
-    output = [bb[0], bb[2], bb[4]]
-    #print("output: ", output)
+    if (name=="SHL17"):
+        output = [bb[0], bb[2]+4000, bb[4]] #fixing too large bbox
+    else:
+        output = [bb[0], bb[2], bb[4]]
+    
     return output
 
 
-with viewer.txn() as s:
-    '''
-    #heatmap
-    s.layers.append(name = 'lv', layer=ngLayer(lv, res, tt='segmentation'))
-    #s.layers.append(name = 'heatmap', layer=ngLayer(heatmap, res, tt='segmentation'))
-    s.layers.append(name='density_map',layer=ng_layer_edited(heatmap,res=[64, 64, 60], tt='image'))
-    '''
+def screenshot(path='temp.png', save=True, show=True, size=[4096, 4096]):
+    ss = viewer.screenshot(size=size).screenshot.image_pixels
+    if save:
+        Image.fromarray(ss).save(path)
+    if show:
+        plt.imshow(ss)
+        plt.show()
 
+
+with viewer.txn() as s:
 
     ##COLOR CODED VIS
-    names = ['KR4', 'KR5', 'KR6', 'SHL55', 'PN3', 'LUX2', 'SHL20', 'KR11', 'KR10', 'RGC2', 'KM4', 'NET12', 'SHL17']
+    names = ['KR4', 'KR5', 'KR6', 'SHL55', 'PN3', 'LUX2', 'SHL20', 'KR11', 'KR10', 'RGC2', 'KM4', 'NET12', 'SHL17', 'NET10', 'NET11', 'PN7', 'SHL18', 'SHL24', 'SHL28', 'RGC7']
 
     neuron_dict = read_yml('/data/projects/weilab/dataset/hydra/mask_mip1/neuron_id.txt') #switch to local path
-
 
     for name in names:
         path = f"color_coded/{name}_color_coded.h5"
         if(os.path.exists(path)):
             load_data(name) #cache["vesicles"] is updated to the current neuron's vesicle data
-            vesicles = cache["vesicles"][:, ::2, ::2]
-            mask = cache["mask"][:, ::2, ::2]
-            offset = get_offset(name) #this is in physical units
-            res1_offset = [offset[0]/30, offset[1]/64, offset[2]/64]
-            res2_offset = [offset[0]/30, offset[1]/16, offset[2]/16]
+            print(f"done loading data for {name}")
 
+            #do ds when loading
 
-            CV = (vesicles==1).astype('uint16')
-            DV = (vesicles==2).astype('uint16')
-            DVH = (vesicles==3).astype('uint16')
-            
+            vesicles = cache["vesicles"]
+            mask = cache["mask"]
+            sv = cache["sv"]
+
+            offset = get_offset(name) #this is in 30-8-8?
+            res1_offset = [offset[0], offset[1]/8, offset[2]/8] #mask 
+            res2_offset = [offset[0], offset[1]/2, offset[2]/2] #lv
+            res3_offset = [offset[0], offset[1]/4, offset[2]/4] #sv
+
+            #note - downsampled everything to 30-64-64 for full vis so use res1 for everything
 
             s.layers.append(name=f'{name}_mask',layer=ngLayer(mask,res=res1, tt='segmentation', oo=res1_offset))
-            s.layers.append(name=f'{name}_CV',layer=ngLayer(CV,res=res2, tt='segmentation', oo=res2_offset))
-            s.layers.append(name=f'{name}_DV',layer=ngLayer(DV,res=res2, tt='segmentation', oo=res2_offset))
-            s.layers.append(name=f'{name}_DVH',layer=ngLayer(DVH,res=res2, tt='segmentation', oo=res2_offset))
+            s.layers.append(name=f'{name}_CV',layer=ngLayer((vesicles==1).astype('uint16'),res=res1, tt='segmentation', oo=res1_offset))
+            s.layers.append(name=f'{name}_DV',layer=ngLayer((vesicles==2).astype('uint16'),res=res1, tt='segmentation', oo=res1_offset))
+            s.layers.append(name=f'{name}_DVH',layer=ngLayer((vesicles==3).astype('uint16'),res=res1, tt='segmentation', oo=res1_offset))
+
+            #add SV layer
+            s.layers.append(name=f'{name}_small',layer=ngLayer(sv,res=res1, tt='segmentation', oo=res1_offset))
 
             print(f"added all layers for {name}")
         else:
             print(f"file for {name} does not exist")
 
-    del mask, vesicles, CV, DV, DVH
-    cache.clear()
-    gc.collect()
+        del mask, vesicles
+        cache.clear()
+        gc.collect()
 
 
 print(viewer)

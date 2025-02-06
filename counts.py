@@ -10,7 +10,8 @@ cache = {}
 
 D0 = '/data/projects/weilab/dataset/hydra/results/'
 D1 = '/data/rothmr/hydra/stitched/'
-D2 = '/data/rothmr/hydra/lists/'
+D2 = '/data/rothmr/hydra/lists/' #LV near neuron IDs
+D6 = '/data/rothmr/hydra/sv_nn/' #SV near neuron IDs
 
 #all files should be in the shape of the neuron mask file for the neuron name eg. "KR5"
 #use for non chunking pipeline
@@ -23,7 +24,6 @@ def load_data(name):
 	with h5py.File(f"{D0}vesicle_big_{name}_30-8-8.h5", 'r') as f: #high res large vesicles data for [name]
 		cache["lv"] = f["main"][:]
 	print("done loading LV")
-
 
 	with h5py.File(f"{D0}vesicle_small_{name}_30-8-8.h5", 'r') as f: #high res small vesicles data for [name]
 		cache["sv"] = f["main"][:]
@@ -134,14 +134,14 @@ def calculate_vesicles_within(mask, vesicles=None, save_list=False, name=None, c
 
 			print("total num LV: ", len(total_ids_set)-1) #minus bg label 0
 			
-			#only for LV
+			#path for LV
 			if(save_list):
 				#export list as a txt file
 				path = f'{D2}within_{name}.txt'
 				with open(path, "w") as f:
 					for vesicle_id in within_ids_set:
 						f.write(f"{vesicle_id}\n")
-				print("list for types exported")
+				print("list for LV near neuron exported")
 
 			return len(within_ids_set) #num of unique ids within the mask
 
@@ -180,33 +180,70 @@ def calculate_vesicles_within(mask, vesicles=None, save_list=False, name=None, c
 
 			print("total num SV: ", len(total_ids_set)-1) #minus bg label 0
 
+			#path for SV
+			if(save_list):
+				#export list as a txt file
+				path = f'{D6}sv_nn_{name}.txt'
+				with open(path, "w") as f:
+					for vesicle_id in within_ids_set:
+						f.write(f"{vesicle_id}\n")
+				print("list for SV near neuron exported")
+
 			return len(within_ids_set)
 
 	else: #no chunking
-		num_vesicles_within = 0
+		if(lv):
+			num_vesicles_within = 0
 
-		labeled_vesicles = vesicles
-		vesicle_coords = np.column_stack(np.nonzero(labeled_vesicles))
+			labeled_vesicles = vesicles
+			vesicle_coords = np.column_stack(np.nonzero(labeled_vesicles))
 
-		unique_labels = np.unique(labeled_vesicles)
-		num_labels = len(unique_labels) - 1 #minus bg label 0
-		print("total num of vesicles: ", num_labels)
+			unique_labels = np.unique(labeled_vesicles)
+			num_labels = len(unique_labels) - 1 #minus bg label 0
+			print("total num of vesicles: ", num_labels)
 
-		vesicles_within_mask = np.zeros(num_labels, dtype=bool)
-		mask_values = bool_mask[vesicle_coords[:, 0], vesicle_coords[:, 1], vesicle_coords[:, 2]]
-		vesicles_within_mask = np.unique(labeled_vesicles[vesicle_coords[:, 0], vesicle_coords[:, 1], vesicle_coords[:, 2]][mask_values])
-		within_ids_set.update(vesicles_within_mask)
-		num_vesicles_within = len(vesicles_within_mask)
+			vesicles_within_mask = np.zeros(num_labels, dtype=bool)
+			mask_values = bool_mask[vesicle_coords[:, 0], vesicle_coords[:, 1], vesicle_coords[:, 2]]
+			vesicles_within_mask = np.unique(labeled_vesicles[vesicle_coords[:, 0], vesicle_coords[:, 1], vesicle_coords[:, 2]][mask_values])
+			within_ids_set.update(vesicles_within_mask)
+			num_vesicles_within = len(vesicles_within_mask)
 
-		if(save_list):
-			#export vesicles_within_mask as a txt file
-			path = f'{D2}within_{name}.txt'
-			with open(path, "w") as f:
-				for vesicle_id in list(within_ids_set):
-					f.write(f"{str(vesicle_id)}\n")
-			print("list for types exported")
+			#path for LV
+			if(save_list):
+				#export vesicles_within_mask as a txt file
+				path = f'{D2}within_{name}.txt'
+				with open(path, "w") as f:
+					for vesicle_id in list(within_ids_set):
+						f.write(f"{str(vesicle_id)}\n")
+				print("list for LV near neuron exported")
 
-		return num_vesicles_within
+			return num_vesicles_within
+		if(sv):
+			num_vesicles_within = 0
+
+			labeled_vesicles = vesicles
+			vesicle_coords = np.column_stack(np.nonzero(labeled_vesicles))
+
+			unique_labels = np.unique(labeled_vesicles)
+			num_labels = len(unique_labels) - 1 #minus bg label 0
+			print("total num of vesicles: ", num_labels)
+
+			vesicles_within_mask = np.zeros(num_labels, dtype=bool)
+			mask_values = bool_mask[vesicle_coords[:, 0], vesicle_coords[:, 1], vesicle_coords[:, 2]]
+			vesicles_within_mask = np.unique(labeled_vesicles[vesicle_coords[:, 0], vesicle_coords[:, 1], vesicle_coords[:, 2]][mask_values])
+			within_ids_set.update(vesicles_within_mask)
+			num_vesicles_within = len(vesicles_within_mask)
+
+			#path for SV
+			if(save_list):
+				#export vesicles_within_mask as a txt file
+				path = f'{D6}sv_nn_{name}.txt'
+				with open(path, "w") as f:
+					for vesicle_id in list(within_ids_set):
+						f.write(f"{str(vesicle_id)}\n")
+				print("list for SV near neuron exported")
+
+			return num_vesicles_within
 
 
 #use if neurons and vesicles files have different res (testing phase)
@@ -286,11 +323,15 @@ if __name__ == "__main__":
 	chunking = True #use chunking only if memory issues
 	num_chunks = 4
 
-	#to_calculate = ['KR4']
+	#for calculating one neuron - set from command line
+	'''
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--name', type=str, help='neuron name')
 	args = parser.parse_args()
 	to_calculate = [args.name]
+	'''
+
+	to_calculate = ["KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", "RGC2", "KM4", "NET12"] #example usage
 
 	for name in to_calculate:
 		print(f"-----------{name}-----------")
@@ -305,8 +346,6 @@ if __name__ == "__main__":
 		else:
 			#load everything
 			load_data(name)
-
-		print("done loading data")
 
 		neurons = cache["box"]
 
@@ -328,13 +367,14 @@ if __name__ == "__main__":
 			#implement chunking
 			print(f"calculate using chunking with {num_chunks} chunks")
 			
+
 			print("---LV---")
 			print(f"LV within neuron {name} & within {threshold}nm of another neuron: ", 
 				calculate_vesicles_within(intersections, save_list=True, name=name, chunking=True, num_chunks=num_chunks, lv=True), "\n")
-			
+
 			print("---SV---")
 			print(f"SV within neuron {name} & within {threshold}nm of another neuron: ", 
-				calculate_vesicles_within(intersections, save_list=False, name=name, chunking=False, num_chunks=num_chunks, sv=True))
+				calculate_vesicles_within(intersections, save_list=True, name=name, chunking=True, num_chunks=num_chunks, sv=True))
 
 	
 		else:
@@ -343,12 +383,11 @@ if __name__ == "__main__":
 
 			print("---LV---")
 			print(f"LV within neuron {name} & within {threshold}nm of another neuron: ", 
-				calculate_vesicles_within(intersections, vesicles=cache["lv"], save_list=True, name=name), "\n")
-
+				calculate_vesicles_within(intersections, vesicles=cache["lv"], save_list=True, name=name, lv=True), "\n")
 
 			print("---SV---")
 			print(f"SV within neuron {name} & within {threshold}nm of another neuron: ", 
-				calculate_vesicles_within(intersections, vesicles=cache["sv"], save_list=False, name=name))
+				calculate_vesicles_within(intersections, vesicles=cache["sv"], save_list=True, name=name, sv=True), "\n")
 
 	
 		
