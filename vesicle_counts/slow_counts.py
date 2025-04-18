@@ -6,6 +6,8 @@ import os
 import yaml
 import argparse
 
+#slow, inefficient method - ignore this if using pointcloud/metadata pipeline for vesicles
+
 cache = {}
 
 D0 = '/data/projects/weilab/dataset/hydra/results/'
