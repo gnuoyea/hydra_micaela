@@ -25,14 +25,18 @@
 - `vesicle_volume_stats.py`: For calculating and exporting vesicle volumes only (not useful if using point cloud metadata format).
 - `LUX2_density.py`: Calculating more specific stats for a particular region of interest within the LUX2 neuron.
 
-### versions_merging
-(explain)
-
 ## visualization
-Unused alternate visualization methods, see vesicleEM/ves_vis for final visualization methods which are in use.
+Currently UNUSED but functional alternate visualization methods, see `vesicleEM/ves_vis` for final visualization methods which are in use.
 
 ### neuroglancer_heatmap
+- `heatmap.py`: Uses a Gaussian filter to calculate a heatmap image for vesicles within a given neuron, for visualization in Neuroglancer.
+- `ng_heatmap_vis.py`: Neuroglancer rendering script to display a full dataset heatmap (from individual neuron heatmap images created using `heatmap.py`), assembled together by projecting into 2D and using coordinate offsets. Normalizing values and using a 4th color channel along with necessary rotations to align files for later color visualization.
+- `ng_shader_script.glsl`: Shader script to plug into Neuroglancer visualization in order to render a gradient of colors based on values from 0.0 to 1.0.
 
 ### neuroglancer_types_map
+- `types_visualization.py`: Generates “color coded” vesicle mask files given segmentation ID to type mappings by relabeling each vesicle to indicate its type.
+- `types_ng.py`: Neuroglancer rendering script to display the full dataset of vesicles color coded by type, using previously generated mask files and using the offset feature to align neurons accurately.
 
 ### threshold_density_map
+- `color_new.py`: Generates a heatmap using a Gaussian filter, then classifies/colors vesicles according to their density value through three thresholds as a simpler method if a continuous heatmap is not necessary.
+- `color_new_ng.py`: Neuroglancer rendering script for thresholded heatmaps generated in `color_new.py`.
