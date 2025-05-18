@@ -1,7 +1,9 @@
 # ves_analysis
 
+##analysis
+
 ### metadata_and_kdtree
-- `metadata_and_kdtree.py`: Convert format of dataset from binary mask to point cloud for each neuron, storing as a list of local coordinates of vesicle COMs and corresponding attributes. Construct kdtree from point cloud for density map and export point cloud + metadata information into txt format for easy readability to dictionary format.
+- `metadata_and_kdtree.py`: Convert format of dataset from binary mask to point cloud for each neuron, storing as a list of local coordinates of vesicle COMs and calculate statistics to store as corresponding attributes. Finally, construct kdtree from point cloud for density map, and export point cloud + metadata information into txt format for easy readability to dictionary format.
 - `density_new.py`: Separate script to generate kdtree for density values if metadata is already generated.
 - `merge_metadata.py`: Merging any added vesicle predictions from updated versions for adaptability and reduced computation.
 
@@ -15,15 +17,22 @@
 - `slow_counts.py`: Slow, inefficient method—ignore if using point cloud metadata pipeline for vesicles. Manually counts the number of overlapping vesicles in a given region using vectorized binary mask operations (if both neurons and vesicles in form of binary masks).
 
 ### neuron_stats
+- `surface_area.py`: Computes the surface area for a given binary mask of a neuron by generating a 1 voxel border using Euclidean distance transform and calculating the volume of the border region.
 
 ### vesicle_stats
+- `updated_extract_stats.py`: Extract statistics from point cloud metadata txt format (`metadata_and_kdtree/metadata_and_kdtree.py`), save as a pandas dataframe, and export into spreadsheet format. Also export lists of volumes and diameters as txt files.
+- `lv_diameters.py`: Finding diameter-based thresholds for near neuron counts, to be used in `vesicle_counts/pointcloud_near_counts.py`.
+- `vesicle_volume_stats.py`: For calculating and exporting vesicle volumes only (not useful if using point cloud metadata format).
+- `LUX2_density.py`: Calculating more specific stats for a particular region of interest within the LUX2 neuron.
+
+### versions_merging
+(explain)
+
+##visualization
+Unused alternate visualization methods, see vesicleEM/ves_vis for final visualization methods which are in use.
 
 ### neuroglancer_heatmap
 
 ### neuroglancer_types_map
 
 ### threshold_density_map
-
-### versions_merging
-
-### Notes
