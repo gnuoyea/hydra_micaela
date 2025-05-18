@@ -1,6 +1,6 @@
 # ves_analysis
 
-##analysis
+## analysis
 
 ### metadata_and_kdtree
 - `metadata_and_kdtree.py`: Convert format of dataset from binary mask to point cloud for each neuron, storing as a list of local coordinates of vesicle COMs and calculate statistics to store as corresponding attributes. Finally, construct kdtree from point cloud for density map, and export point cloud + metadata information into txt format for easy readability to dictionary format.
@@ -28,7 +28,7 @@
 ### versions_merging
 (explain)
 
-##visualization
+## visualization
 Unused alternate visualization methods, see vesicleEM/ves_vis for final visualization methods which are in use.
 
 ### neuroglancer_heatmap
