@@ -2,8 +2,6 @@ import numpy as np
 import h5py
 import yaml
 
-#not using this, using adam visualization method instead
-
 #use normalized mappings generated in density_new.py
 #generate color coded file color_test.h5
 
@@ -47,6 +45,7 @@ def convert(density, percentiles):
 
 
 '''
+#optional
 def plot(d):
 	data = np.ndarray(d.values())
 	plt.hist(data, bins=10, edgecolor='black', alpha=0.7)
@@ -55,7 +54,7 @@ def plot(d):
 
 
 def generate(vesicles, d):
-	#TEST - squish dict into a Gaussian distribution
+	#squish dict into a Gaussian distribution
 	percentiles = np.percentile(list(d.values()), [33, 66])
 	print("percentiles: ", percentiles)
 
