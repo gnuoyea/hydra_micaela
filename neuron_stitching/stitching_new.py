@@ -5,7 +5,7 @@ import yaml
 
 bbox = np.loadtxt('/data/projects/weilab/dataset/hydra/mask_mip1/bbox.txt').astype(int)
 D0 = '/data/projects/weilab/dataset/hydra/results/'
-D1 = '/data/rothmr/hydra/stitched/'
+D1 = '/home/rothmr/projects/stitched/stitched/' #for output
 
 #dict by neuron, all zyx [neuron]: (corner), (other corner)
 boxes = {}
@@ -197,9 +197,11 @@ def stitch(name):
 if __name__ == "__main__":
 	neuron_dict = read_yml('/data/projects/weilab/dataset/hydra/mask_mip1/neuron_id.txt')
 
-	#to_stitch = ['NET10', 'NET11', 'PN7', 'SHL18', 'SHL24', 'SHL28', 'RGC7', 'PN4', 'PN5', 'SHL26', 'SHL21', 'KM1', 'KR20', 'PN8', 'SHL29', 'SHL51', 'SHL52', 'SHL53', 'SHL54', 'KM2']
+	names_20 = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", 
+				"RGC2", "KM4", "SHL17", "NET12", "NET10", "NET11", "PN7", "SHL18", 
+				"SHL24", "SHL28", "RGC7"]
 
-	to_stitch = neuron_dict.keys() #names of all neurons
+	to_stitch = names_20
 
 	for n in to_stitch:
 		print("")
