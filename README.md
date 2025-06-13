@@ -9,6 +9,7 @@
 
 #### Generate metadata
 Run `python -i metadata_and_kdtree/kdTreeMeta.py --which_neurons "sample"`
+
 Metadata will be saved to `sample/sample_outputs/sample_com_mapping.txt`
 
 #### Export statistics
