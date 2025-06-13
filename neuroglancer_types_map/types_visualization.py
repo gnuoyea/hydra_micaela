@@ -93,7 +93,6 @@ if __name__ == "__main__":
 	parser.add_argument('--name', type=str, help='neuron name')
 	args = parser.parse_args()
 	name = args.name
-	#name = "KR5"
 
 	chunking = True
 	num_chunks = 8
@@ -146,11 +145,6 @@ if __name__ == "__main__":
 		#save the output file to an h5
 		print("done generating color coded file")
 
-		'''
-		with h5py.File(f"{D5}{name}_color_coded.h5", "w") as f:
-			f.create_dataset("main", shape=output.shape, data=output)
-			print(f"saved as {name}_color_coded.h5")
-		'''
 
 	else:
 		load_data(name)
