@@ -4,6 +4,8 @@
 
 #### Given files in `sample/sample_data`:
 - `7-13_mask.h5` mask of two adjacent neuron pieces (small chunk, not full neurons)
+	- Note: since we are using a small chunk of data in a neuron adjacency region instead of storing each neuron as an individual file, there is no stitching step for the sample.
+
 - `7-13_ves.h5` large vesicles within the target neuron (segid 62) in this region
 - `7-13_lv_label.txt` vesicle type classifications
 
