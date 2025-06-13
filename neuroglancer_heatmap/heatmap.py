@@ -13,17 +13,10 @@ cache = {}
 
 #downsample bc of the full ng vis
 def load_data(name):
-    if(name=="SHL17"): #fixing too large bbox
-        with h5py.File(f"{D0}vesicle_big_{name}_30-8-8.h5", 'r') as f:
-            cache["lv"] = np.array(f["main"][:, 4000:, :2400][:, ::2, ::2]) #30-16-16
-        with h5py.File(f"{D0}vesicle_small_{name}_30-8-8.h5", 'r') as f:
-            cache["sv"] = np.array(f["main"][:, 4000:, :2400][:, ::2, ::2]) #30-16-16
-
-    else:
-        with h5py.File(f"{D0}vesicle_big_{name}_30-8-8.h5", 'r') as f:
-            cache["lv"] = np.array(f["main"][:][:, ::2, ::2]) #30-16-16
-        with h5py.File(f"{D0}vesicle_small_{name}_30-8-8.h5", 'r') as f:
-            cache["sv"] = np.array(f["main"][:][:, ::2, ::2]) #30-16-16
+    with h5py.File(f"{D0}vesicle_big_{name}_30-8-8.h5", 'r') as f:
+        cache["lv"] = np.array(f["main"][:][:, ::2, ::2]) #30-16-16
+    with h5py.File(f"{D0}vesicle_small_{name}_30-8-8.h5", 'r') as f:
+        cache["sv"] = np.array(f["main"][:][:, ::2, ::2]) #30-16-16
 
 #when needing to ds more
 def load_data_DS(name):
@@ -202,10 +195,8 @@ def calculate_density_map_COLOR(density_map):
     return colored_density_map
 
 if __name__ == "__main__":
-    #to_generate = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", "RGC2", "KM4", "SHL17",
-    #            "NET12", "NET10", "NET11", "PN7", "SHL18", "SHL24", "SHL28", "RGC7"]
-    to_generate = ["NET10", "NET11", "SHL18"]
-
+    to_generate = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", "RGC2", "KM4", "SHL17",
+                "NET12", "NET10", "NET11", "PN7", "SHL18", "SHL24", "SHL28", "RGC7"] #20 neurons
 
     chunking = False
     num_chunks = 4
