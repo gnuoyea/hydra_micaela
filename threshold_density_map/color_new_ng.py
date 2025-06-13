@@ -10,8 +10,6 @@ import gc
 from PIL import Image
 import matplotlib.pyplot as plt
 
-#not using this, using adam visualization method instead
-
 
 bbox = np.loadtxt('/data/projects/weilab/dataset/hydra/mask_mip1/bbox.txt').astype(int)
 
@@ -70,10 +68,7 @@ def read_yml(filename):
 def get_offset(name): #returns in 30-8-8
     nid = neuron_name_to_id(name)[0]
     bb = bbox[bbox[:,0]==nid, 1:][0]
-    if (name=="SHL17"):
-        output = [bb[0], bb[2]+4000, bb[4]] #fixing too large bbox
-    else:
-        output = [bb[0], bb[2], bb[4]]
+    output = [bb[0], bb[2], bb[4]]
     
     return output
 
@@ -90,9 +85,9 @@ def screenshot(path='temp.png', save=True, show=True, size=[4096, 4096]):
 with viewer.txn() as s:
 
     ##COLOR CODED VIS
-    names = ['KR6']
+    names = ['KR6'] #test
 
-    neuron_dict = read_yml('/data/projects/weilab/dataset/hydra/mask_mip1/neuron_id.txt') #switch to local path
+    neuron_dict = read_yml('/data/projects/weilab/dataset/hydra/mask_mip1/neuron_id.txt')
 
     for name in names:
         path = f"color_test.h5"
