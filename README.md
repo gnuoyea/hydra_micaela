@@ -27,7 +27,6 @@ Run `python -i [folder]/pointcloud_near_counts.py --which_neurons "sample" targe
 
 ### metadata_and_kdtree
 - `kdTreeMeta.py`: Convert format of dataset from binary mask to point cloud for each neuron, storing as a list of local coordinates of vesicle COMs and calculate statistics to store as corresponding attributes. Finally, construct kdtree from point cloud for density map, and export point cloud + metadata information into txt format for easy readability to dictionary format.
-- `density_new.py`: Separate script to generate kdtree for density values if metadata is already generated.
 
 ### neuron_stitching
 - `stitching_new.py`: Stitching together all pieces of adjacent neurons into the bounding box of a target neuron using global coordinate offsets; stitching two at a time to reduce memory consumption.
