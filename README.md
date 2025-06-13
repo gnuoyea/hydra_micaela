@@ -2,7 +2,7 @@
 
 ## Instructions for running sample data
 
-#### Given files:
+#### Given files in `sample/sample_data`:
 - `7-13_mask.h5` mask of two adjacent neuron pieces (small chunk, not full neurons)
 - `7-13_ves.h5` large vesicles within the target neuron (segid 62) in this region
 - `7-13_lv_label.txt` vesicle type classifications
