@@ -5,10 +5,10 @@ import scipy.stats as stats
 import re
 
 #refactoring counts.py - for the soma counts, pointcloud based approach
-#export totals and (mean, sem, n) over all neurons?
+#export totals and (mean, sem, n) over all neurons
 
 D0 = '/data/projects/weilab/dataset/hydra/results/'
-D9 = 'skibidi/sv/'
+D9 = 'sv/'
 
 cache = {} #stores "soma", "sv_mapping"
 
@@ -16,7 +16,6 @@ names_20 = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10"
 			"RGC2", "KM4", "SHL17", "NET12", "NET10", "NET11", "PN7", "SHL18", 
 			"SHL24", "SHL28", "RGC7"]
 
-#this is based on 02-17 old version of metadata
 def read_txt_to_dict(name):
 	results_dict = {}
 	file_path = f"{D9}{name}_sv_com_mapping.txt" #only consider SV here
@@ -58,9 +57,6 @@ def calculate_vesicles_within(mask_res): #use data from cache - after loading
 	
 	coms_list = mapping.keys() #extract from mapping
 	for com in coms_list:
-		if(name == "SHL17"):
-			com = [com[0], com[1]+4000, com[2]]
-			print(com)
 		voxels_com = [com[0], com[1]/4, com[2]/4] #downsample since mask in 30-32-32
 		voxels_com = np.round(voxels_com).astype(int) #round for indexing in the mask
 		if (soma[tuple(voxels_com)]!=0): #boolean
