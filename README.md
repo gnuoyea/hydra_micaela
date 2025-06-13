@@ -1,6 +1,28 @@
 # ves_analysis
 
-## analysis
+## Instructions for running sample data
+Given files:
+- `7-13_mask.h5` mask of two adjacent neuron pieces (small chunk, not full neurons)
+- `7-13_ves.h5` large vesicles within the target neuron (segid 62) in this region
+- `7-13_lv_label.txt` vesicle type classifications
+
+Steps:
+#### Generate metadata
+Run `python -i metadata_and_kdtree/kdTreeMeta.py --which_neurons "sample"`
+Metadata will be saved to `sample/sample_outputs/sample_com_mapping.txt`
+
+#### Export statistics
+Run `updated_export_stats --which_neurons “sample”`
+
+#### Generate thresholds
+Run `python -i lv_thresholds.py --which_neurons “sample”`
+
+#### Generate pointcloud counts (note segid of target neuron is 62)
+Run `python -i [folder]/pointcloud_near_counts.py --which_neurons "sample" target-segid 62 --lv_threshold [lv threshold] --cv_threshold [cv threshold] --dv_threshold [dv threshold] --dvh_threshold [dvh threshold]` (replacing thresholds with those found from previous script)
+
+
+
+## Analysis scripts
 
 ### metadata_and_kdtree
 - `metadata_and_kdtree.py`: Convert format of dataset from binary mask to point cloud for each neuron, storing as a list of local coordinates of vesicle COMs and calculate statistics to store as corresponding attributes. Finally, construct kdtree from point cloud for density map, and export point cloud + metadata information into txt format for easy readability to dictionary format.
@@ -24,7 +46,7 @@
 - `vesicle_volume_stats.py`: For calculating and exporting vesicle volumes only (not useful if using point cloud metadata format).
 - `LUX2_density.py`: Calculating more specific stats for a particular region of interest within the LUX2 neuron.
 
-## visualization
+## Visualization scripts
 Currently UNUSED but functional alternate visualization methods, see `vesicleEM/ves_vis` for final visualization methods which are in use.
 
 ### neuroglancer_heatmap
