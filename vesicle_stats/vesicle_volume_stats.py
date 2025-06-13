@@ -7,7 +7,6 @@ cache = {}
 D0 = '/data/projects/weilab/dataset/hydra/results/'
 D1 = '/data/rothmr/hydra/stitched/'
 D_volumes = '/data/rothmr/hydra/volumes/' #for raw list of volumes for each neuron
-#D_stats = '/data/rothmr/hydra/volume_stats/'
 
 #dictionaries for SV type classifications will be saved in cache
 names_20 = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", "RGC2", "KM4", "SHL17",
@@ -130,7 +129,7 @@ def calculate_stats(name, lv=False, sv=False):
 		
 	if(sv):
 		#fill in dicts for all neurons
-		with np.load("sv_types/SV_types_new.npz") as data: #UPDATED to new types mapping file for new classifications
+		with np.load("sv_types/SV_types_new.npz") as data:
 			current = 0
 			while (current<len(data["ids"])):
 				name = data["ids"][current][0]
@@ -212,8 +211,7 @@ def calculate_stats(name, lv=False, sv=False):
 
 
 if __name__ == "__main__":
-	to_generate = names_20 = ["KR4", "KR5", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", "RGC2", "KM4", "SHL17",
-				"NET12", "NET10", "NET11", "PN7", "SHL18", "SHL24", "SHL28", "RGC7"]
+	to_generate = names_20
 	for name in to_generate:
 		calculate_stats(name, lv=True, sv=True) #for sv
 
