@@ -19,7 +19,7 @@ Run `updated_export_stats --which_neurons “sample”`
 Run `python -i lv_thresholds.py --which_neurons “sample”`
 
 #### Generate pointcloud counts (note segid of target neuron is 62)
-Run `python -i [folder]/pointcloud_near_counts.py --which_neurons "sample" target-segid 62 --lv_threshold [lv threshold] --cv_threshold [cv threshold] --dv_threshold [dv threshold] --dvh_threshold [dvh threshold]` (replacing thresholds with those found from previous script)
+Run `python -i vesicle_counts/pointcloud_near_counts.py --which_neurons "sample" target-segid 62 --lv_threshold [lv threshold] --cv_threshold [cv threshold] --dv_threshold [dv threshold] --dvh_threshold [dvh threshold]` (replacing thresholds with those found from previous script)
 
 
 
