@@ -99,7 +99,9 @@ def screenshot(path='temp.png', save=True, show=True, size=[4096, 4096]):
 
 
 def visualize():
-    names = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", "RGC2", "KM4", "SHL17", "PN7"]
+    names = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", 
+            "RGC2", "KM4", "NET12", "NET10", "NET11", "PN7", "SHL18", 
+            "SHL24", "SHL28", "RGC7", "SHL17"]
 
     #once all heatmaps already generated
     for name in names:
@@ -151,117 +153,6 @@ def visualize():
             s.layers.append(name='density_map',layer=ng_layer_edited(vesicles,res=res_test, tt='image'))
             '''
 
-    names2 = ["SHL24"] #DS by 4
-    for name in names2:
-        v_fname = f"{D5}{name}_heatmap.h5"
-        with h5py.File(v_fname, "r") as f:
-            vesicles = f["main"][:]
-            #print("original size of heatmap:", vesicles.shape)
-
-        m_fname = f"{D0}neuron_{name}_30-32-32.h5"
-        with h5py.File(m_fname, "r") as f:
-            mask = f["main"][:] #30-32-32
-
-        offset = get_offset(name) #IN ZYX
-        print("offset in 30-8-8 and xyz: ", offset) 
-
-        res1_offset = [offset[0]/4, 0, offset[1]/4] #mask
-        res2_offset = [offset[0]/4, 0, offset[1]/4] #heatmap
-
-
-        with viewer.txn() as s:
-            summed = np.sum(vesicles, axis=2) #collapse z-axis at angle of vis - sum up all densities
-            density_map_normalized = (summed - np.min(summed)) / (np.max(summed) - np.min(summed))
-            density_map_normalized = (density_map_normalized * 255).astype(np.uint8)
-
-            density_map_normalized = np.rot90(density_map_normalized, k=3, axes=(0,1))
-
-            s.layers.append(name=f'{name}_summed_density_map', layer=ng_layer(density_map_normalized, res=[30, 32, 32], tt='image', oo=res2_offset))
-            print(f"added density map layer for {name}")
-
-            mask_summed = np.any(mask, axis=2) #collapse z-axis - logical OR
-            #print("shape of collapsed mask: ", mask_summed.shape)
-            border = extract_border(mask_summed)
-
-            border = np.rot90(border, k=3, axes=(0,1)) #rotate
-
-            s.layers.append(name=f'{name}_mask',layer=ng_layer_2d(border,res=[30, 32, 32], tt='segmentation', oo=res1_offset)) #seg
-            print(f"added mask border layer for {name}")
-
-
-
-    names3 = ["SHL28", "RGC7"] #DS by 8
-    for name in names3:
-        v_fname = f"{D5}{name}_heatmap.h5"
-        with h5py.File(v_fname, "r") as f:
-            vesicles = f["main"][:]
-            #print("original size of heatmap:", vesicles.shape)
-
-        m_fname = f"{D0}neuron_{name}_30-32-32.h5"
-        with h5py.File(m_fname, "r") as f:
-            mask = f["main"][:] #30-32-32
-
-        offset = get_offset(name) #IN ZYX
-        print("offset in 30-8-8 and xyz: ", offset) 
-
-        res1_offset = [offset[0]/4, 0, offset[1]/4] #mask
-        res2_offset = [offset[0]/4, 0, offset[1]/8] #heatmap
-
-
-        with viewer.txn() as s:
-            summed = np.sum(vesicles, axis=2) #collapse z-axis at angle of vis - sum up all densities
-            density_map_normalized = (summed - np.min(summed)) / (np.max(summed) - np.min(summed))
-            density_map_normalized = (density_map_normalized * 255).astype(np.uint8)
-
-            density_map_normalized = np.rot90(density_map_normalized, k=3, axes=(0,1))
-
-            s.layers.append(name=f'{name}_summed_density_map', layer=ng_layer(density_map_normalized, res=[30, 64, 64], tt='image', oo=res2_offset))
-            print(f"added density map layer for {name}")
- 
-            mask_summed = np.any(mask, axis=2) #collapse z-axis - logical OR
-            #print("shape of collapsed mask: ", mask_summed.shape)
-            border = extract_border(mask_summed)
-
-            border = np.rot90(border, k=3, axes=(0,1)) #rotate
-
-            s.layers.append(name=f'{name}_mask',layer=ng_layer_2d(border,res=[30, 32, 32], tt='segmentation', oo=res1_offset)) #seg
-            print(f"added mask border layer for {name}")
-
-    names4 = ["SHL18", "NET10", "NET11"] #DS by 16
-    for name in names4:
-        v_fname = f"{D5}{name}_heatmap.h5"
-        with h5py.File(v_fname, "r") as f:
-            vesicles = f["main"][:]
-            #print("original size of heatmap:", vesicles.shape)
-
-        m_fname = f"{D0}neuron_{name}_30-32-32.h5"
-        with h5py.File(m_fname, "r") as f:
-            mask = f["main"][:] #30-32-32
-
-        offset = get_offset(name) #IN ZYX
-        print("offset in 30-8-8 and xyz: ", offset) 
-
-        res1_offset = [offset[0]/4, 0, offset[1]/4] #mask
-        res2_offset = [offset[0]/4, 0, offset[1]/16] #heatmap
-
-        with viewer.txn() as s:
-            summed = np.sum(vesicles, axis=2) #collapse z-axis at angle of vis - sum up all densities
-            density_map_normalized = (summed - np.min(summed)) / (np.max(summed) - np.min(summed))
-            density_map_normalized = (density_map_normalized * 255).astype(np.uint8)
-
-            density_map_normalized = np.rot90(density_map_normalized, k=3, axes=(0,1))
-
-            s.layers.append(name=f'{name}_summed_density_map', layer=ng_layer(density_map_normalized, res=[30, 128, 128], tt='image', oo=res2_offset))
-            print(f"added density map layer for {name}")
-
-            mask_summed = np.any(mask, axis=2) #collapse z-axis - logical OR
-            #print("shape of collapsed mask: ", mask_summed.shape)
-            border = extract_border(mask_summed)
-
-            border = np.rot90(border, k=3, axes=(0,1)) #rotate
-
-            s.layers.append(name=f'{name}_mask',layer=ng_layer_2d(border,res=[30, 32, 32], tt='segmentation', oo=res1_offset)) #seg
-            print(f"added mask border layer for {name}")
 
 
 visualize()
