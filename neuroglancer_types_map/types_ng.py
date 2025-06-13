@@ -18,23 +18,13 @@ cache = {}
 
 #only store one at a time
 def load_data(name):
-    if(name=="SHL17"): #fixing too large bbox
-        with h5py.File(f"color_coded/{name}_color_coded.h5", "r") as f:
-            cache["vesicles"] = np.array(f["main"][:, 4000:, :2400][:,::8,::8]) #30-8-8
-        with h5py.File(f"/data/projects/weilab/dataset/hydra/results/neuron_{name}_30-32-32.h5") as f:
-            cache["mask"] = np.array(f["main"][:, 1000:, :600][:,::2,::2]) #30-32-32
-        #load SV
-        with h5py.File(f"/data/projects/weilab/dataset/hydra/results/vesicle_small_{name}_30-8-8.h5") as f:
-            cache["sv"] = np.array(f["main"][:, 4000:, :2400][:,::8,::8]) #30-8-8
-
-    else:
-        with h5py.File(f"color_coded/{name}_color_coded.h5", "r") as f:
-            cache["vesicles"] = np.array(f["main"][:][:,::8,::8])
-        with h5py.File(f"/data/projects/weilab/dataset/hydra/results/neuron_{name}_30-32-32.h5") as f:
-            cache["mask"] = np.array(f["main"][:][:,::2,::2])
-        #load SV
-        with h5py.File(f"/data/projects/weilab/dataset/hydra/results/vesicle_small_{name}_30-8-8.h5") as f:
-            cache["sv"] = np.array(f["main"][:][:,::8,::8]) #30-8-8
+    with h5py.File(f"color_coded/{name}_color_coded.h5", "r") as f:
+        cache["vesicles"] = np.array(f["main"][:][:,::8,::8])
+    with h5py.File(f"/data/projects/weilab/dataset/hydra/results/neuron_{name}_30-32-32.h5") as f:
+        cache["mask"] = np.array(f["main"][:][:,::2,::2])
+    #load SV
+    with h5py.File(f"/data/projects/weilab/dataset/hydra/results/vesicle_small_{name}_30-8-8.h5") as f:
+        cache["sv"] = np.array(f["main"][:][:,::8,::8]) #30-8-8
 
 def find_free_port():
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
@@ -97,10 +87,7 @@ def read_yml(filename):
 def get_offset(name): #returns in 30-8-8
     nid = neuron_name_to_id(name)[0]
     bb = bbox[bbox[:,0]==nid, 1:][0]
-    if (name=="SHL17"):
-        output = [bb[0], bb[2]+4000, bb[4]] #fixing too large bbox
-    else:
-        output = [bb[0], bb[2], bb[4]]
+    output = [bb[0], bb[2], bb[4]]
     
     return output
 
