@@ -85,14 +85,7 @@ def read_yml(filename):
 def get_offset(name): #returns in 30-8-8 and xyz
     nid = neuron_name_to_id(name)[0]
     bb = bbox[bbox[:,0]==nid, 1:][0] #bbox is in zyx
-    if (name=="SHL17"):
-        output = [bb[4], bb[2]+4000, bb[0]] #fixing too large bbox, change to xyz
-    else:
-        output = [bb[4], bb[2], bb[0]] #min coords, but change to xyz
-
-    #take out z axis offset
-    #output[1] = 0
-
+    output = [bb[4], bb[2], bb[0]] #min coords, but change to xyz
     return output
 
 
@@ -116,12 +109,8 @@ def visualize():
             #print("original size of heatmap:", vesicles.shape)
 
         m_fname = f"{D0}neuron_{name}_30-32-32.h5" #30-32-32
-        if name=="SHL17":
-            with h5py.File(f"/data/projects/weilab/dataset/hydra/results/neuron_{name}_30-32-32.h5") as f:
-                mask = f["main"][:, 1000:, :600] #30-32-32, crop mask file
-        else:
-            with h5py.File(m_fname, "r") as f:
-                mask = f["main"][:] #30-32-32
+        with h5py.File(m_fname, "r") as f:
+            mask = f["main"][:] #30-32-32
 
         offset = get_offset(name) #IN ZYX
         print("offset in 30-8-8 and xyz: ", offset) 
