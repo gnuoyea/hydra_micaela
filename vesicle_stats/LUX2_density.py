@@ -9,7 +9,7 @@ import scipy.stats as stats
 #normalize by number of vesicles in each of these regions
 
 D0 = '/data/projects/weilab/dataset/hydra/results/'
-D9 = 'skibidi/'
+D9 = ''
 
 
 cache = {}
@@ -50,7 +50,6 @@ def load_data():
 		print("shape: ", f["main"].shape)
 	print("mask loaded")
 
-#this is based on 02-17 old version of metadata
 def read_txt_to_dict(name, which):
 	if(which=="sv"):
 		results_dict = {}
@@ -259,7 +258,6 @@ if __name__ == "__main__":
 		for density in outside_ball_densities:
 			f.write(str(density) + "\n")
 
-	####whitney u test
 
 
 	
