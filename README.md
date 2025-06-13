@@ -1,12 +1,12 @@
 # ves_analysis
 
 ## Instructions for running sample data
-Given files:
+
+#### Given files:
 - `7-13_mask.h5` mask of two adjacent neuron pieces (small chunk, not full neurons)
 - `7-13_ves.h5` large vesicles within the target neuron (segid 62) in this region
 - `7-13_lv_label.txt` vesicle type classifications
 
-Steps:
 #### Generate metadata
 Run `python -i metadata_and_kdtree/kdTreeMeta.py --which_neurons "sample"`
 Metadata will be saved to `sample/sample_outputs/sample_com_mapping.txt`
