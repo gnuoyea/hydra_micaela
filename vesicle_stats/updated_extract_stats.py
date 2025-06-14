@@ -1,18 +1,17 @@
-#updated to deal w/ the versions merging (assuming metadata already merged), and different 
-#sources of vesicle type mapping dictionaries
-
 import numpy as np
 import re
 import scipy.stats as stats
 import pandas as pd
 import ast
+import argparse
 
 #install openpyxl into conda env
 
-#extract volume and diameter stats from old format metadata
+#extract volume and diameter stats
 #note - set up directories for list exports before running
 
-D_exports = f"/home/rothmr/hydra/list_exports/"
+
+sample_dir = '/home/rothmr/hydra/sample/'
 
 names_20 = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", 
 			"RGC2", "KM4", "SHL17", "NET12", "NET10", "NET11", "PN7", "SHL18", 
@@ -26,7 +25,11 @@ for name in names_20:
 def read_txt_to_dict(name, which):
 	results_dict = {}
 
-	file_path = f'/home/rothmr/hydra/meta/new_meta/{name}_{which}_com_mapping.txt'
+	if(name=="sample"):
+		file_path = f'{sample_dir}sample_outputs/sample_com_mapping.txt'
+
+	else:
+		file_path = f'/home/rothmr/hydra/meta/new_meta/{name}_{which}_com_mapping.txt'
 
 	with open(file_path, 'r') as file:
 		for line in file:
@@ -67,48 +70,47 @@ def lv_labels_dict(file_path):
 def find_subtype(name, com):
 	lv_mapping = read_txt_to_dict(name, "lv") #com-> attributes metadata
 	attributes = lv_mapping[com]
+	label = int(attributes[1][3:])
 
-	old_labels_dict = lv_labels_dict(f"/home/rothmr/hydra/types/old_types/{name}_types.txt")
-	add_data = ["NET11", "RGC7", "SHL24", "SHL28", "NET10", "SHL18", "SHL17"]
-	adding = False
-	if(name in add_data):
-		new_labels_dict = lv_labels_dict(f"/home/rothmr/hydra/types/new_types/new_v0+v2/{name}_lv_label.txt")
-		adding = True
+	if(name=="sample"):
+		labels_dict_path = f"{sample_dir}sample_data/7-13_lv_label.txt"
+	else:
+		labels_dict_path = f"/home/rothmr/hydra/types/new_types/new_v0+v2/{name}_lv_label.txt"
 
-	#find subtype
-	subtype = 0
-	label = int(attributes[1][3:]) #just the number; could be overlap
+	labels_dict = lv_labels_dict(labels_dict_path)
 
-	if(adding): #if this is one of the neurons stuff has been added to
-		new_vesicle = False
-		if(len(attributes)==7):
-			new_vesicle = True
-
-		if((label in old_labels_dict.keys()) or (adding and label in new_labels_dict.keys())):
-			if(new_vesicle):
-				if(label in new_labels_dict.keys()):
-					subtype = new_labels_dict[label]
-				else:
-					subtype = 0
-			else:
-				subtype = old_labels_dict[label] #should exist in here
-
-	else: #neurons with no change
-		#subtype, if exists, is just whatever is in the old file
-		if(label in old_labels_dict.keys()):
-			subtype = old_labels_dict[label]
-		else: #if doesn't exist in the dict, set to 0
-			subtype = 0
+	if(label in labels_dict.keys()):
+		subtype = labels_dict[label]
+	else: #if doesn't exist in the dict, set to 0 (extraneous/unclassified)
+		print("error - subtype not found")
+		subtype = 0
 
 	return subtype
 
 
 
 if __name__ == "__main__":
-	results = []
-	#combined_result = #create np array for all neurons counts
-	names = names_20
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--which_neurons", type=str, help="all or sample?") #enter as "all" or "sample"
+	args = parser.parse_args()
+	which_neurons = args.which_neurons
 
+	#ensure which_neurons is entered
+	if(args.which_neurons is None):
+		parser.error("error - must enter all or sample for --which_neurons")
+
+	#set export dir, neuron list, and SV processing based on which arg chosen
+	if(which_neurons=="sample"):
+		D_exports = f'{sample_dir}sample_outputs/'
+		sv_stats = False
+		names = ["sample"]
+	elif(which_neurons=="all"):
+		D_exports = f"/home/rothmr/hydra/list_exports/"
+		sv_stats = True
+		names = names_20
+
+	results = []
+	
 	#initialize lists to store values for all neurons combined
 	all_lv_volumes = []
 	all_cv_volumes = []
@@ -128,26 +130,29 @@ if __name__ == "__main__":
 	all_sdv_diameters = []
 	all_all_diameters = []
 
-	#fill in SV dicts for all neurons
-	with np.load("/home/rothmr/hydra/types/sv_types/SV_types_new.npz") as data: #UPDATED to new types mapping file for new classifications
-		print("initializing SV types mapping dictionaries")
-		current = 0
-		while (current<len(data["ids"])):
-			name = data["ids"][current][0]
-			vesicle_id = int(data["ids"][current][1]) #vesicle ID in the [name] neuron
-			label = data["labels"][current] #type from the embeddings, float type
-			#SDV
-			if(label==0):
-				vesicle_type = 4
-			#SCV
-			if(label==1):
-				vesicle_type = 5
-			if(label!=0 and label!=1):
-				print("label error")
-			cache[name] = {**cache[name], vesicle_id:vesicle_type} #update dict for the [name] neuron
-			current+=1;
 
-		print("initialized all SV types mapping dictionaries")
+	#only if running all neurons, not sample
+	if(sv_stats==True):
+		#fill in SV dicts for all neurons
+		with np.load("/home/rothmr/hydra/types/sv_types/SV_types_new.npz") as data: #UPDATED to new types mapping file for new classifications
+			print("initializing SV types mapping dictionaries")
+			current = 0
+			while (current<len(data["ids"])):
+				name = data["ids"][current][0]
+				vesicle_id = int(data["ids"][current][1]) #vesicle ID in the [name] neuron
+				label = data["labels"][current] #type from the embeddings, float type
+				#SDV
+				if(label==0):
+					vesicle_type = 4
+				#SCV
+				if(label==1):
+					vesicle_type = 5
+				if(label!=0 and label!=1):
+					print("label error")
+				cache[name] = {**cache[name], vesicle_id:vesicle_type} #update dict for the [name] neuron
+				current+=1;
+
+			print("initialized all SV types mapping dictionaries")
 
 	for name in names:
 		print(f"---volume stats for {name}---")
@@ -237,54 +242,55 @@ if __name__ == "__main__":
 			for vol in dvh_volumes:
 				f.write(str(vol) + "\n")
 
-		
-		####initialize stuff for SV volumes
-		sv_label_to_type = cache[name] #for type info
-		sv_dictionary = read_txt_to_dict(name, "sv")
-		sv_label_to_vol = {int(value_list[1][3:]):value_list[2] for value_list in sv_dictionary.values()}
+		if(sv_stats):
+			####initialize stuff for SV volumes
+			sv_label_to_type = cache[name] #for type info
+			sv_dictionary = read_txt_to_dict(name, "sv")
+			sv_label_to_vol = {int(value_list[1][3:]):value_list[2] for value_list in sv_dictionary.values()}
 
-		####SV volumes
-		sv_volumes = list(sv_label_to_vol.values())
-		all_sv_volumes.extend(sv_volumes) #for later all neurons
-		sv_volumes = np.array(sv_volumes)
-		mean = np.mean(sv_volumes)
-		sem = stats.sem(sv_volumes)
-		n = len(sv_volumes)
-		print(f"Total SV mean (volumes): {mean}, SV sem: {sem}, SV n: {n}")
-		results.append(["SV", name, "Volume", mean, sem, n])
-		with open(f"{D_exports}{name}_SV_volumes.txt", "w") as f:
-			for vol in sv_volumes:
-				f.write(str(vol) + "\n")
+			####SV volumes
+			sv_volumes = list(sv_label_to_vol.values())
+			all_sv_volumes.extend(sv_volumes) #for later all neurons
+			sv_volumes = np.array(sv_volumes)
+			mean = np.mean(sv_volumes)
+			sem = stats.sem(sv_volumes)
+			n = len(sv_volumes)
+			print(f"Total SV mean (volumes): {mean}, SV sem: {sem}, SV n: {n}")
+			results.append(["SV", name, "Volume", mean, sem, n])
+			with open(f"{D_exports}{name}_SV_volumes.txt", "w") as f:
+				for vol in sv_volumes:
+					f.write(str(vol) + "\n")
 
-		sdv_volumes = list(value for label, value in sv_label_to_vol.items() if (label in sv_label_to_type and sv_label_to_type[label] == 4))
-		all_sdv_volumes.extend(sdv_volumes) #for later all neurons
-		sdv_volumes = np.array(sdv_volumes)
-		mean = np.mean(sdv_volumes)
-		sem = stats.sem(sdv_volumes)
-		n = len(sdv_volumes)
-		print(f"SDV mean (volumes): {mean}, SDV sem: {sem}, SDV n: {n}")
-		results.append(["SDV", name, "Volume", mean, sem, n])
-		with open(f"{D_exports}{name}_SDV_volumes.txt", "w") as f:
-			for vol in sdv_volumes:
-				f.write(str(vol) + "\n")
+			sdv_volumes = list(value for label, value in sv_label_to_vol.items() if (label in sv_label_to_type and sv_label_to_type[label] == 4))
+			all_sdv_volumes.extend(sdv_volumes) #for later all neurons
+			sdv_volumes = np.array(sdv_volumes)
+			mean = np.mean(sdv_volumes)
+			sem = stats.sem(sdv_volumes)
+			n = len(sdv_volumes)
+			print(f"SDV mean (volumes): {mean}, SDV sem: {sem}, SDV n: {n}")
+			results.append(["SDV", name, "Volume", mean, sem, n])
+			with open(f"{D_exports}{name}_SDV_volumes.txt", "w") as f:
+				for vol in sdv_volumes:
+					f.write(str(vol) + "\n")
 
-		scv_volumes = list(value for label, value in sv_label_to_vol.items() if (label in sv_label_to_type and sv_label_to_type[label] == 5))
-		all_scv_volumes.extend(scv_volumes) #for later all neurons
-		scv_volumes = np.array(scv_volumes)
-		mean = np.mean(scv_volumes)
-		sem = stats.sem(scv_volumes)
-		n = len(scv_volumes)
-		print(f"SCV mean (volumes): {mean}, SCV sem: {sem}, SCV n: {n}")
-		results.append(["SCV", name, "Volume", mean, sem, n])
-		with open(f"{D_exports}{name}_SCV_volumes.txt", "w") as f:
-			for vol in scv_volumes:
-				f.write(str(vol) + "\n")
+			scv_volumes = list(value for label, value in sv_label_to_vol.items() if (label in sv_label_to_type and sv_label_to_type[label] == 5))
+			all_scv_volumes.extend(scv_volumes) #for later all neurons
+			scv_volumes = np.array(scv_volumes)
+			mean = np.mean(scv_volumes)
+			sem = stats.sem(scv_volumes)
+			n = len(scv_volumes)
+			print(f"SCV mean (volumes): {mean}, SCV sem: {sem}, SCV n: {n}")
+			results.append(["SCV", name, "Volume", mean, sem, n])
+			with open(f"{D_exports}{name}_SCV_volumes.txt", "w") as f:
+				for vol in scv_volumes:
+					f.write(str(vol) + "\n")
 		
 
 		####before moving on - combine all types for this neuron and export stats
 		all_volumes = []
 		all_volumes.extend(lv_volumes)
-		all_volumes.extend(sv_volumes)
+		if(sv_stats):
+			all_volumes.extend(sv_volumes)
 		all_all_volumes.extend(all_volumes)
 		all_volumes = np.array(all_volumes)
 		mean = np.mean(all_volumes)
@@ -343,50 +349,52 @@ if __name__ == "__main__":
 			for diam in dvh_diameters:
 				f.write(str(diam) + "\n")
 
-		####initialize stuff for SV diameters
-		sv_label_to_diam = {int(value_list[1][3:]):value_list[3]*2 for value_list in sv_dictionary.values()}
+		if(sv_stats):
+			####initialize stuff for SV diameters
+			sv_label_to_diam = {int(value_list[1][3:]):value_list[3]*2 for value_list in sv_dictionary.values()}
 
-		####SV diameters
-		sv_diameters = list(sv_label_to_diam.values())
-		all_sv_diameters.extend(sv_diameters) #for later all neurons
-		sv_diameters = np.array(sv_diameters)
-		mean = np.mean(sv_diameters)
-		sem = stats.sem(sv_diameters)
-		n = len(sv_diameters)
-		print(f"Total SV mean (diameters): {mean}, SV sem: {sem}, SV n: {n}")
-		results.append(["SV", name, "Diameter", mean, sem, n])
-		with open(f"{D_exports}{name}_SV_diameters.txt", "w") as f:
-			for diam in sv_diameters:
-				f.write(str(diam) + "\n")
+			####SV diameters
+			sv_diameters = list(sv_label_to_diam.values())
+			all_sv_diameters.extend(sv_diameters) #for later all neurons
+			sv_diameters = np.array(sv_diameters)
+			mean = np.mean(sv_diameters)
+			sem = stats.sem(sv_diameters)
+			n = len(sv_diameters)
+			print(f"Total SV mean (diameters): {mean}, SV sem: {sem}, SV n: {n}")
+			results.append(["SV", name, "Diameter", mean, sem, n])
+			with open(f"{D_exports}{name}_SV_diameters.txt", "w") as f:
+				for diam in sv_diameters:
+					f.write(str(diam) + "\n")
 
-		sdv_diameters = list(value for label, value in sv_label_to_diam.items() if (label in sv_label_to_type and sv_label_to_type[label] == 4))
-		all_sdv_diameters.extend(sdv_diameters) #for later all neurons
-		sdv_diameters = np.array(sdv_diameters)
-		mean = np.mean(sdv_diameters)
-		sem = stats.sem(sdv_diameters)
-		n = len(sdv_diameters)
-		print(f"SDV mean (diameters): {mean}, SDV sem: {sem}, SDV n: {n}")
-		results.append(["SDV", name, "Diameter", mean, sem, n])
-		with open(f"{D_exports}{name}_SDV_diameters.txt", "w") as f:
-			for diam in sdv_diameters:
-				f.write(str(diam) + "\n")
+			sdv_diameters = list(value for label, value in sv_label_to_diam.items() if (label in sv_label_to_type and sv_label_to_type[label] == 4))
+			all_sdv_diameters.extend(sdv_diameters) #for later all neurons
+			sdv_diameters = np.array(sdv_diameters)
+			mean = np.mean(sdv_diameters)
+			sem = stats.sem(sdv_diameters)
+			n = len(sdv_diameters)
+			print(f"SDV mean (diameters): {mean}, SDV sem: {sem}, SDV n: {n}")
+			results.append(["SDV", name, "Diameter", mean, sem, n])
+			with open(f"{D_exports}{name}_SDV_diameters.txt", "w") as f:
+				for diam in sdv_diameters:
+					f.write(str(diam) + "\n")
 
-		scv_diameters = list(value for label, value in sv_label_to_diam.items() if (label in sv_label_to_type and sv_label_to_type[label] == 5))
-		all_scv_diameters.extend(scv_diameters) #for later all neurons
-		scv_diameters = np.array(scv_diameters)
-		mean = np.mean(scv_diameters)
-		sem = stats.sem(scv_diameters)
-		n = len(scv_diameters)
-		print(f"SCV mean (diameters): {mean}, SCV sem: {sem}, SCV n: {n}")
-		results.append(["SCV", name, "Diameter", mean, sem, n])
-		with open(f"{D_exports}{name}_SCV_diameters.txt", "w") as f:
-			for diam in scv_diameters:
-				f.write(str(diam) + "\n")
+			scv_diameters = list(value for label, value in sv_label_to_diam.items() if (label in sv_label_to_type and sv_label_to_type[label] == 5))
+			all_scv_diameters.extend(scv_diameters) #for later all neurons
+			scv_diameters = np.array(scv_diameters)
+			mean = np.mean(scv_diameters)
+			sem = stats.sem(scv_diameters)
+			n = len(scv_diameters)
+			print(f"SCV mean (diameters): {mean}, SCV sem: {sem}, SCV n: {n}")
+			results.append(["SCV", name, "Diameter", mean, sem, n])
+			with open(f"{D_exports}{name}_SCV_diameters.txt", "w") as f:
+				for diam in scv_diameters:
+					f.write(str(diam) + "\n")
 
 		####before moving on - combine all types for this neuron and export stats
 		all_diameters = []
 		all_diameters.extend(lv_diameters)
-		all_diameters.extend(sv_diameters)
+		if(sv_stats):
+			all_diameters.extend(sv_diameters)
 		all_all_diameters.extend(all_diameters)
 		all_diameters = np.array(all_diameters)
 		mean = np.mean(all_diameters)
@@ -446,35 +454,36 @@ if __name__ == "__main__":
 		for vol in all_dvh_volumes:
 			f.write(str(vol) + "\n")
 
-	all_sv_volumes = np.array(all_sv_volumes)
-	mean = np.mean(all_sv_volumes)
-	sem = stats.sem(all_sv_volumes)
-	n = len(all_sv_volumes)
-	print(f"ALL NEURONS - SV mean (volumes): {mean}, SV sem: {sem}, SV n: {n}")
-	results.append(["SV", "TOTAL", "Volume", mean, sem, n])
-	with open(f"{D_exports}all_SV_volumes.txt", "w") as f:
-		for vol in all_sv_volumes:
-			f.write(str(vol) + "\n")
+	if(sv_stats):
+		all_sv_volumes = np.array(all_sv_volumes)
+		mean = np.mean(all_sv_volumes)
+		sem = stats.sem(all_sv_volumes)
+		n = len(all_sv_volumes)
+		print(f"ALL NEURONS - SV mean (volumes): {mean}, SV sem: {sem}, SV n: {n}")
+		results.append(["SV", "TOTAL", "Volume", mean, sem, n])
+		with open(f"{D_exports}all_SV_volumes.txt", "w") as f:
+			for vol in all_sv_volumes:
+				f.write(str(vol) + "\n")
 
-	all_scv_volumes = np.array(all_scv_volumes)
-	mean = np.mean(all_scv_volumes)
-	sem = stats.sem(all_scv_volumes)
-	n = len(all_scv_volumes)
-	print(f"ALL NEURONS - SCV mean (volumes): {mean}, SCV sem: {sem}, SCV n: {n}")
-	results.append(["SCV", "TOTAL", "Volume", mean, sem, n])
-	with open(f"{D_exports}all_SCV_volumes.txt", "w") as f:
-		for vol in all_scv_volumes:
-			f.write(str(vol) + "\n")
+		all_scv_volumes = np.array(all_scv_volumes)
+		mean = np.mean(all_scv_volumes)
+		sem = stats.sem(all_scv_volumes)
+		n = len(all_scv_volumes)
+		print(f"ALL NEURONS - SCV mean (volumes): {mean}, SCV sem: {sem}, SCV n: {n}")
+		results.append(["SCV", "TOTAL", "Volume", mean, sem, n])
+		with open(f"{D_exports}all_SCV_volumes.txt", "w") as f:
+			for vol in all_scv_volumes:
+				f.write(str(vol) + "\n")
 
-	all_sdv_volumes = np.array(all_sdv_volumes)
-	mean = np.mean(all_sdv_volumes)
-	sem = stats.sem(all_sdv_volumes)
-	n = len(all_sdv_volumes)
-	print(f"ALL NEURONS - SDV mean (volumes): {mean}, SDV sem: {sem}, SDV n: {n}")
-	results.append(["SDV", "TOTAL", "Volume", mean, sem, n])
-	with open(f"{D_exports}all_SDV_volumes.txt", "w") as f:
-		for vol in all_sdv_volumes:
-			f.write(str(vol) + "\n")
+		all_sdv_volumes = np.array(all_sdv_volumes)
+		mean = np.mean(all_sdv_volumes)
+		sem = stats.sem(all_sdv_volumes)
+		n = len(all_sdv_volumes)
+		print(f"ALL NEURONS - SDV mean (volumes): {mean}, SDV sem: {sem}, SDV n: {n}")
+		results.append(["SDV", "TOTAL", "Volume", mean, sem, n])
+		with open(f"{D_exports}all_SDV_volumes.txt", "w") as f:
+			for vol in all_sdv_volumes:
+				f.write(str(vol) + "\n")
 
 	all_all_volumes = np.array(all_all_volumes)
 	mean = np.mean(all_all_volumes)
@@ -527,35 +536,36 @@ if __name__ == "__main__":
 		for diam in all_dvh_diameters:
 			f.write(str(diam) + "\n")
 
-	all_sv_diameters = np.array(all_sv_diameters)
-	mean = np.mean(all_sv_diameters)
-	sem = stats.sem(all_sv_diameters)
-	n = len(all_sv_diameters)
-	print(f"ALL NEURONS - SV mean (diameters): {mean}, SV sem: {sem}, SV n: {n}")
-	results.append(["SV", "TOTAL", "Diameter", mean, sem, n])
-	with open(f"{D_exports}all_SV_diameters.txt", "w") as f:
-		for diam in all_sv_diameters:
-			f.write(str(diam) + "\n")
+	if(sv_stats):
+		all_sv_diameters = np.array(all_sv_diameters)
+		mean = np.mean(all_sv_diameters)
+		sem = stats.sem(all_sv_diameters)
+		n = len(all_sv_diameters)
+		print(f"ALL NEURONS - SV mean (diameters): {mean}, SV sem: {sem}, SV n: {n}")
+		results.append(["SV", "TOTAL", "Diameter", mean, sem, n])
+		with open(f"{D_exports}all_SV_diameters.txt", "w") as f:
+			for diam in all_sv_diameters:
+				f.write(str(diam) + "\n")
 
-	all_scv_diameters = np.array(all_scv_diameters)
-	mean = np.mean(all_scv_diameters)
-	sem = stats.sem(all_scv_diameters)
-	n = len(all_scv_diameters)
-	print(f"ALL NEURONS - SCV mean (diameters): {mean}, SCV sem: {sem}, SCV n: {n}")
-	results.append(["SCV", "TOTAL", "Diameter", mean, sem, n])
-	with open(f"{D_exports}all_SCV_diameters.txt", "w") as f:
-		for diam in all_scv_diameters:
-			f.write(str(diam) + "\n")
+		all_scv_diameters = np.array(all_scv_diameters)
+		mean = np.mean(all_scv_diameters)
+		sem = stats.sem(all_scv_diameters)
+		n = len(all_scv_diameters)
+		print(f"ALL NEURONS - SCV mean (diameters): {mean}, SCV sem: {sem}, SCV n: {n}")
+		results.append(["SCV", "TOTAL", "Diameter", mean, sem, n])
+		with open(f"{D_exports}all_SCV_diameters.txt", "w") as f:
+			for diam in all_scv_diameters:
+				f.write(str(diam) + "\n")
 
-	all_sdv_diameters = np.array(all_sdv_diameters)
-	mean = np.mean(all_sdv_diameters)
-	sem = stats.sem(all_sdv_diameters)
-	n = len(all_sdv_diameters)
-	print(f"ALL NEURONS - SDV mean (diameters): {mean}, SDV sem: {sem}, SDV n: {n}")
-	results.append(["SDV", "TOTAL", "Diameter", mean, sem, n])
-	with open(f"{D_exports}all_SDV_diameters.txt", "w") as f:
-		for diam in all_sdv_diameters:
-			f.write(str(diam) + "\n")
+		all_sdv_diameters = np.array(all_sdv_diameters)
+		mean = np.mean(all_sdv_diameters)
+		sem = stats.sem(all_sdv_diameters)
+		n = len(all_sdv_diameters)
+		print(f"ALL NEURONS - SDV mean (diameters): {mean}, SDV sem: {sem}, SDV n: {n}")
+		results.append(["SDV", "TOTAL", "Diameter", mean, sem, n])
+		with open(f"{D_exports}all_SDV_diameters.txt", "w") as f:
+			for diam in all_sdv_diameters:
+				f.write(str(diam) + "\n")
 
 	all_all_diameters = np.array(all_all_diameters)
 	mean = np.mean(all_all_diameters)
@@ -569,7 +579,7 @@ if __name__ == "__main__":
 
 
 	df = pd.DataFrame(results, columns=["Type", "Neuron", "Measurement", "Mean", "SEM", "N"])
-	df.to_excel("/home/rothmr/hydra/sheet_exports/vesicle_stats.xlsx", index=False)
+	df.to_excel(f"{D_exports}vesicle_stats.xlsx", index=False)
 	print("export done")
 
 
