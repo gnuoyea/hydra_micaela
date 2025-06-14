@@ -52,7 +52,7 @@ Run `python -i vesicle_counts/pointcloud_near_counts.py --which_neurons "sample"
 - `vesicle_volume_stats.py`: For calculating and exporting vesicle volumes only (not useful if using point cloud metadata format).
 - `LUX2_density.py`: Calculating more specific stats for a particular region of interest within the LUX2 neuron.
 
-## Visualization scripts
+## Alternate visualization scripts
 Currently UNUSED but functional alternate visualization methods, see `vesicleEM/ves_vis` for final visualization methods which are in use.
 
 ### neuroglancer_heatmap
