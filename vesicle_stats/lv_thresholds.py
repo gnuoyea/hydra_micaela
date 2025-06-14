@@ -8,7 +8,6 @@ import os
 import argparse
 
 #for finding thresholds for near neuron counts
-
 #extract vesicle stats among all metadata to find overall mean and standard dev
 
 names_20 = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", 
@@ -23,11 +22,14 @@ for name in names_20:
 	dictionary = dict()
 	cache[f"{name}"] = dictionary
 
-#update for new exported com map directories + lv only
+#lv only
 def read_txt_to_dict(name, which):
 	results_dict = {}
 
-	file_path = f'/home/rothmr/hydra/meta/new_meta/{name}_{which}_com_mapping.txt'
+	if(name=="sample"):
+		file_path = f"{sample_dir}sample_outputs/sample_com_mapping.txt"
+	else:
+		file_path = f'/home/rothmr/hydra/meta/new_meta/{name}_{which}_com_mapping.txt'
 
 	with open(file_path, 'r') as file:
 		for line in file:
@@ -41,10 +43,7 @@ def read_txt_to_dict(name, which):
 			coords_list=coords_str.split()
 			coords = [float(coord) for coord in coords_list]
 
-			#add quotes around "new" attribute
-			value_string = re.sub(r'(?<!["\'])\bnew\b(?!["\'])', "'new'", value_string)
 			attributes = ast.literal_eval(value_string)
-
 			results_dict[tuple(coords)]=list(attributes)
 
 	return results_dict
@@ -75,6 +74,11 @@ if __name__ == "__main__":
 	elif(which_neurons=="all"):
 		names = names_20
 
+	#ensure which_neurons is entered
+	if(args.which_neurons is None):
+		parser.error("error - must enter all or sample for --which_neurons")
+
+
 	results = []
 
 	#initialize lists to store values for all neurons combined
@@ -92,7 +96,7 @@ if __name__ == "__main__":
 		####LV diameters
 
 		if(name=="sample"):
-			labels_dict_path = __
+			labels_dict_path = f"{sample_dir}/sample_data/7-13_lv_label.txt"
 		else:
 			labels_dict_path = f"/home/rothmr/hydra/types/new_types/new_v0+v2/{name}_lv_label.txt"
 
@@ -102,24 +106,20 @@ if __name__ == "__main__":
 		cv_diameters = []
 		dv_diameters = []
 		dvh_diameters = []
-		print(f"length of dict for {name}", len(lv_dictionary.items()))
+		print(f"length of dict for {name}: ", len(lv_dictionary.items()))
 		for com,attributes in lv_dictionary.items():
 			label = int(attributes[1][3:]) #just the number; could be overlap
-
 			subtype = labels_dict[label]
+			diameter = attributes[3]*2
 
+			if(subtype==1):
+				cv_diameters.append(diameter)
 
-				if(subtype==1):
-					cv_diameters.append(diameter)
+			if(subtype==2):
+				dv_diameters.append(diameter)
 
-				if(subtype==2):
-					dv_diameters.append(diameter)
-
-				if(subtype==3):
-					dvh_diameters.append(diameter)
-
-			else:
-				print(f"error - label not in any dict: {label}")
+			if(subtype==3):
+				dvh_diameters.append(diameter)
 
 
 		all_cv_diameters.extend(cv_diameters)
@@ -140,7 +140,7 @@ if __name__ == "__main__":
 	stdev = statistics.stdev(all_lv_diameters)
 	sem = stats.sem(all_lv_diameters)
 	n = len(all_lv_diameters)
-	threshold = mean + (2*stdev) #725.1193604203999 nm
+	threshold = mean + (2*stdev)
 	print(f"ALL NEURONS - LV mean (diameters): {mean}, LV stdev: {stdev}, LV sem: {sem}, LV n: {n}, LV Threshold: {threshold}")
 	results.append(["LV", "TOTAL", "Diameter", mean, stdev, sem, n, threshold])
 	
@@ -150,7 +150,7 @@ if __name__ == "__main__":
 	stdev = statistics.stdev(all_cv_diameters)
 	sem = stats.sem(all_cv_diameters)
 	n = len(all_cv_diameters)
-	threshold = mean + (2*stdev) #
+	threshold = mean + (2*stdev)
 	print(f"ALL NEURONS - CV mean (diameters): {mean}, CV stdev: {stdev}, CV sem: {sem}, CV n: {n}, CV Threshold: {threshold}")
 	results.append(["CV", "TOTAL", "Diameter", mean, stdev, sem, n, threshold])
 
@@ -159,7 +159,7 @@ if __name__ == "__main__":
 	stdev = statistics.stdev(all_dv_diameters)
 	sem = stats.sem(all_dv_diameters)
 	n = len(all_dv_diameters)
-	threshold = mean + (2*stdev) #
+	threshold = mean + (2*stdev)
 	print(f"ALL NEURONS - DV mean (diameters): {mean}, DV stdev: {stdev}, DV sem: {sem}, DV n: {n}, DV Threshold: {threshold}")
 	results.append(["DV", "TOTAL", "Diameter", mean, stdev, sem, n, threshold])
 
@@ -168,7 +168,7 @@ if __name__ == "__main__":
 	stdev = statistics.stdev(all_dvh_diameters)
 	sem = stats.sem(all_dvh_diameters)
 	n = len(all_dvh_diameters)
-	threshold = mean + (2*stdev) #
+	threshold = mean + (2*stdev)
 	print(f"ALL NEURONS - DVH mean (diameters): {mean}, DVH stdev: {stdev}, DVH sem: {sem}, DVH n: {n}, DVH Threshold: {threshold}")
 	results.append(["DVH", "TOTAL", "Diameter", mean, stdev, sem, n, threshold])
 
@@ -176,7 +176,7 @@ if __name__ == "__main__":
 
 	df = pd.DataFrame(results, columns=["Type", "Neuron", "Measurement", "Mean", "Std Dev", "SEM", "N", "Near neuron threshold"])
 	#df.to_excel("/home/rothmr/hydra/sheet_exports/lv_diameters.xlsx", index=False)
-	df.to_excel(f"{sample_dir}sample_outputs/lv_diameters.xlsx", index=False)
+	df.to_excel(f"{sample_dir}sample_outputs/lv_thresholds.xlsx", index=False)
 	print("export done")
 
 
