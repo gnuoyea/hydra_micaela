@@ -17,7 +17,7 @@ Run `python -i metadata_and_kdtree/kdTreeMeta.py --which_neurons "sample"`
 #### Export statistics
 Run `python -i updated_export_stats.py --which_neurons “sample”`
 
-&rarr; Volume/diameter stats list exports will be saved to `sample/sample_outputs/` in multiple files and sheets
+&rarr; Volume/diameter stats and list exports will be saved to `sample/sample_outputs/` in multiple files
 
 #### Generate thresholds
 Run `python -i lv_thresholds.py --which_neurons “sample”`
