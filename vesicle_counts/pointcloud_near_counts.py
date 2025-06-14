@@ -11,32 +11,37 @@ import argparse
 
 #also install openpyxl into conda env
 
-#refactoring counts.py - for the soma counts, pointcloud based approach - much faster
-#export totals and (mean, sem, n) over all neurons?
+#export totals and (mean, sem, n) over all neurons
 
-#UPDATED - ONLY FOR LV
+#ONLY CONSIDER LV
 
 D0 = '/data/projects/weilab/dataset/hydra/results/'
 D1 = '/home/rothmr/projects/stitched/stitched/' #stitched box files source dir
+sample_dir = '/home/rothmr/hydra/sample/'
 
 cache = {}
 
 
+#use for full names list
 names_20 = ["KR4", "KR5", "KR6", "SHL55", "PN3", "LUX2", "SHL20", "KR11", "KR10", 
 			"RGC2", "KM4", "NET12", "NET10", "NET11", "PN7", "SHL18", 
 			"SHL24", "SHL28", "RGC7", "SHL17"]
 
+#neuron ID and type info
 neuron_info = {"KR4": [1, 5], "KR5": [2, 2], "KR6": [4, 2], "SHL55": [3, 5], "PN3": [10, 3], "LUX2": [11, 5], "SHL20": [17, 5], "KR11": [8, 5], "KR10": [7, 4], 
 			"RGC2": [6, 5], "KM4": [9, 5], "NET12": [15, 5], "NET10": [16, 1], "NET11": [14, 1], "PN7": [12, 5], "SHL18": [18, 1], 
 			"SHL24": [5, 1], "SHL28": [20, 1], "RGC7": [13, 1], "SHL17": [19, 4]}
 
 
 
-#updated version 04-12
 def read_txt_to_dict(name, which):
 	results_dict = {}
 
-	file_path = f'/home/rothmr/hydra/meta/new_meta/{name}_{which}_com_mapping.txt'
+	if(name=="sample"):
+		file_path = f'{sample_dir}sample_outputs/sample_com_mapping.txt'
+
+	else:
+		file_path = f'/home/rothmr/hydra/meta/new_meta/{name}_{which}_com_mapping.txt'
 
 	with open(file_path, 'r') as file:
 		for line in file:
@@ -51,15 +56,14 @@ def read_txt_to_dict(name, which):
 			coords_list=coords_str.split()
 			coords = [float(coord) for coord in coords_list]
 
-			#add quotes around "new" attribute
-			value_string = re.sub(r'(?<!["\'])\bnew\b(?!["\'])', "'new'", value_string)
+			
 			attributes = ast.literal_eval(value_string)
-
 			results_dict[tuple(coords)]=list(attributes)
 
 	return results_dict
 
 
+#takes in segid->classification labeling file
 def lv_labels_dict(file_path):
 	result_dict = {}
 	with open(file_path, 'r') as file:
@@ -75,30 +79,36 @@ def lv_labels_dict(file_path):
 
 
 def load_data(name): #load into cache
-	with h5py.File(f"{D1}neuron_{name}_box_30-32-32.h5", 'r') as f: #stitched mask, contains everything w segids
+	if(name=="sample"):
+		file_path = f'{sample_dir}sample_data/7-13_mask.h5'
+	else:
+		file_path = f"{D1}neuron_{name}_box_30-32-32.h5"
+
+	with h5py.File(file_path, 'r') as f: #stitched mask, contains everything w segids
 		cache["box"] = np.array(f["main"]).astype(int)
 	print("done loading neuron box")
 
-	#cache["sv_mapping"] = read_txt_to_dict(name, "sv")
 	cache["lv_mapping"] = read_txt_to_dict(name, "lv")
+	#cache["sv_mapping"] = read_txt_to_dict(name, "sv") #not needed for near neuron counts
 
 
 
 #outputs the num of vesicles within and the total
 #9 means just everything
-def calculate_vesicles_within(mask_name, which=9): #use data from cache - after loading
+def calculate_vesicles_within(name, mask_name, which=9): #use data from cache - after loading
 	#note that all data in the mapping txt file is in nm
 	mask = cache[mask_name]
 
 	#lv
 	lv_mapping = cache["lv_mapping"] #com-> attributes metadata
 
-	old_labels_dict = lv_labels_dict(f"/home/rothmr/hydra/types/old_types/{name}_types.txt")
-	add_data = ["NET11", "RGC7", "SHL24", "SHL28", "NET10", "SHL18", "SHL17"]
-	adding = False
-	if(name in add_data):
-		new_labels_dict = lv_labels_dict(f"/home/rothmr/hydra/types/new_types/new_v0+v2/{name}_lv_label.txt")
-		adding = True
+	if(name=="sample"):
+		types_dict_path = f"{sample_dir}sample_data/7-13_lv_label.txt"
+
+	else:
+		types_dict_path = f"/home/rothmr/hydra/types/new_types/new_v0+v2/{name}_lv_label.txt"
+
+	labels_dict = lv_labels_dict(types_dict_path)
 
 	total_num = 0
 	num_in_mask = 0
@@ -108,26 +118,10 @@ def calculate_vesicles_within(mask_name, which=9): #use data from cache - after 
 		subtype = 0
 		label = int(attributes[1][3:]) #just the number; could be overlap
 
-		if(adding): #if this is one of the neurons stuff has been added to
-			new_vesicle = False
-			if(len(attributes)==7):
-				new_vesicle = True
-
-			if((label in old_labels_dict.keys()) or (adding and label in new_labels_dict.keys())):
-				if(new_vesicle):
-					if(label in new_labels_dict.keys()):
-						subtype = new_labels_dict[label]
-					else:
-						subtype = 0
-				else:
-					subtype = old_labels_dict[label] #should exist in here
-
-		else: #neurons with no change
-			#subtype, if exists, is just whatever is in the old file
-			if(label in old_labels_dict.keys()):
-				subtype = old_labels_dict[label]
-			else: #if doesn't exist in the dict, set to 0
-				subtype = 0
+		if(label in labels_dict.keys()):
+			subtype = labels_dict[label]
+		else: #if doesn't exist in the dict, set to 0 - we ignore unclassified vesicles
+			subtype = 0
 			
 
 		##now, subtype should have the correct value
@@ -135,8 +129,6 @@ def calculate_vesicles_within(mask_name, which=9): #use data from cache - after 
 			#then consider this vesicle
 			total_num +=1
 
-			if(name == "SHL17"):
-				com = [com[0], com[1]+4000, com[2]]
 			voxels_com = [com[0], com[1]/4, com[2]/4] #downsample since mask in 30-32-32
 			voxels_com = np.round(voxels_com).astype(int) #round for indexing in the mask
 			if (mask[tuple(voxels_com)]!=0): #boolean
@@ -174,8 +166,7 @@ def calculate_volume_nm(mask, res):
 	return volume_nm
 
 
-
-def neuron_name_to_id(name):
+def neuron_name_to_id(name): #for a list of names and returns list??
 	if isinstance(name, str):
 		name = [name]
 	return [neuron_dict[x] for x in name]  
@@ -193,120 +184,266 @@ if __name__ == "__main__":
 
 	results = [] #for xlxs export
 
-	all_percentages_in = [] #percentages in soma
+	all_percentages_in = []
 
 
-	##### optional if running individually
+	#####
 	parser = argparse.ArgumentParser()
-	parser.add_argument("name", type=str, help="neuron name")
+	parser.add_argument("--which_neurons", type=str, help="all or sample?") #enter as "all" or "sample"
+	parser.add_argument("--target_segid", type=float, help="target segid") #enter as an integer, only if sample
+	parser.add_argument("--lv_threshold", type=float, help="lv threshold") 
+	parser.add_argument("--cv_threshold", type=float, help="cv threshold") 
+	parser.add_argument("--dv_threshold", type=float, help="dv threshold") 
+	parser.add_argument("--dvh_threshold", type=float, help="dvh threshold") 
 	args = parser.parse_args()
-	name = args.name
+	which_neurons = args.which_neurons
+	target_segid = args.target_segid
+	lv_threshold = args.lv_threshold
+	cv_threshold = args.cv_threshold
+	dv_threshold = args.dv_threshold
+	dvh_threshold = args.dvh_threshold
 
-	names = [name]
+
+	#ensure which_neurons is entered
+	if(args.which_neurons is None):
+		parser.error("error - must enter all or sample for --which_neurons")
+
+	#ensure target segid and thresholds added if sample
+	if(args.which_neurons=="sample" and target_segid is None):
+		parser.error("--target_segid required if --which_neurons is sample")
+
+	if(args.which_neurons=="sample" and lv_threshold is None):
+		parser.error("--lv_threshold required")
+
+	if(args.which_neurons=="sample" and cv_threshold is None):
+		parser.error("--cv_threshold required")
+
+	if(args.which_neurons=="sample" and dv_threshold is None):
+		parser.error("--dv_threshold required")
+
+	if(args.which_neurons=="sample" and dvh_threshold is None):
+		parser.error("--dvh_threshold required")
+
     #####
 
-
-	for name in names:
-		#neuron id/type info
-		neuron_id = neuron_info[name][0]
-		neuron_type = neuron_info[name][1]
-
-
-		load_data(name) #load neurons and mappings
+	if(which_neurons=="sample"):
+		name = "sample" 
+		neuron_id = 62
+		neuron_type = "n/a" #for the neuron typings, not relevant for sample
+		load_data(name)
 		print(f"loaded data for {name}")
-		nid = neuron_name_to_id(name)
-
-		###
-		t0 = 722.1704715 #all LV
+		nid = target_segid
+		neurons = cache["box"]
 
 		#extract regions of interest from mask
 		neurons = cache["box"]
 
 		neuron_only = np.zeros(neurons.shape, dtype=neurons.dtype)
 		neuron_only[neurons==nid] = 1 #binary mask
+
 		other_neurons = np.zeros(neurons.shape, dtype = neurons.dtype)
 		other_neurons[(neurons!=nid) & (neurons!=0)] = 1 #binary mask
+		print("final size of other_neurons mask in voxels: ", np.sum(other_neurons)) #error checking
 
 
 		print("LV")
-		expanded_others = expand_mask(other_neurons, t0, mask_res)
+		expanded_others = expand_mask(other_neurons, lv_threshold, mask_res)
 		print("mask expanding done")
 		cache["intersections"] = mask_intersection((neuron_only, expanded_others))
 		print("size of intersection region: ", np.sum(cache["intersections"]))
 		print("mask intersection done")
-		total_num, nn_lv = calculate_vesicles_within("intersections") #name of cache file
+		total_num, nn_lv = calculate_vesicles_within(name, "intersections") #name of cache file
 		num_far = total_num-nn_lv
 		print("num outside of region: ", num_far)
 		del expanded_others, cache["intersections"]
 		gc.collect()
 		#append to individual row of the results output
-		results.append([name, neuron_id, neuron_type, "LV", total_num, nn_lv, num_far, t0])
+		results.append([name, neuron_id, neuron_type, "LV", total_num, nn_lv, num_far, lv_threshold])
 
 		print(f"{name} LV done \n")
-
+	
 
 
 		#cv
 		print("CV")
-		t1 = 771.2949661 #CV
-		expanded_others = expand_mask(other_neurons, t1, mask_res)
+		expanded_others = expand_mask(other_neurons, cv_threshold, mask_res)
 		print("mask expanding done")
 		cache["intersections"] = mask_intersection((neuron_only, expanded_others))
 		print("size of intersection region: ", np.sum(cache["intersections"]))
 		print("mask intersection done")
-		total_num, nn_lv = calculate_vesicles_within("intersections", which=1) #name of cache file
+		total_num, nn_lv = calculate_vesicles_within(name, "intersections", which=1) #name of cache file
 		num_far = total_num-nn_lv
 		print("num outside of region: ", num_far)
 		del expanded_others, cache["intersections"]
 		gc.collect()
 		#append to individual row of the results output
-		results.append([name, neuron_id, neuron_type, "CV", total_num, nn_lv, num_far, t1])
+		results.append([name, neuron_id, neuron_type, "CV", total_num, nn_lv, num_far, cv_threshold])
 		print(f"{name} CV done \n")
 
 
 
 		#dv
 		print("DV")
-		t2 = 561.7436736 #DV
-		expanded_others = expand_mask(other_neurons, t2, mask_res)
+		expanded_others = expand_mask(other_neurons, dv_threshold, mask_res)
 		print("mask expanding done")
 		cache["intersections"] = mask_intersection((neuron_only, expanded_others))
 		print("size of intersection region: ", np.sum(cache["intersections"]))
 		print("mask intersection done")
-		total_num, nn_lv = calculate_vesicles_within("intersections", which=2) #name of cache file
+		total_num, nn_lv = calculate_vesicles_within(name, "intersections", which=2) #name of cache file
 		num_far = total_num-nn_lv
 		print("num outside of region: ", num_far)
 		del expanded_others, cache["intersections"]
 		gc.collect()
 		#append to individual row of the results output
-		results.append([name, neuron_id, neuron_type, "DV", total_num, nn_lv, num_far, t2])
+		results.append([name, neuron_id, neuron_type, "DV", total_num, nn_lv, num_far, dv_threshold])
 		print(f"{name} DV done \n")
 
 
 
 		#dvh
 		print("DVH")
-		t3 = 858.8801088 #DVH
-		expanded_others = expand_mask(other_neurons, t3, mask_res)
+		expanded_others = expand_mask(other_neurons, dv_threshold, mask_res)
 		print("mask expanding done")
 		cache["intersections"] = mask_intersection((neuron_only, expanded_others))
 		print("size of intersection region: ", np.sum(cache["intersections"]))
 		print("mask intersection done")
-		total_num, nn_lv = calculate_vesicles_within("intersections", which=3) #name of cache file
+		total_num, nn_lv = calculate_vesicles_within(name, "intersections", which=3) #name of cache file
 		num_far = total_num-nn_lv
 		print("num outside of region: ", num_far)
 		del expanded_others, cache["intersections"]
 		gc.collect()
 		#append to individual row of the results output
-		results.append([name, neuron_id, neuron_type, "DVH", total_num, nn_lv, num_far, t3])
+		results.append([name, neuron_id, neuron_type, "DVH", total_num, nn_lv, num_far, dvh_threshold])
 
 		print(f"{name} DVH done\n")
 
 
 
+	#loop thru all neurons
+	elif(which_neurons=="all"):
+		names_list = names_20
+		for name in names_list:
+			#neuron id/type info
+			neuron_id = neuron_info[name][0]
+			neuron_type = neuron_info[name][1]
+
+
+			load_data(name) #load neurons and mappings
+			print(f"loaded data for {name}")
+			nid = neuron_name_to_id(name)
+
+			###
+
+			#extract regions of interest from mask
+			neurons = cache["box"]
+
+			neuron_only = np.zeros(neurons.shape, dtype=neurons.dtype)
+			neuron_only[neurons==nid] = 1 #binary mask
+
+			other_neurons = np.zeros(neurons.shape, dtype = neurons.dtype)
+
+			#restrict to only neurons w these names:
+			included_neuron_types = [1,2,3]
+			other_included_names = ["SHL29", "SHL53", "PN8", "SHL26", "SHL51", "KM1", "KM2"]
+			total_to_include = [n for n in neuron_dict.keys() if ((n in other_included_names) or (n in neuron_info.keys() and neuron_info[n][1] in included_neuron_types))]
+			included_ids = [neuron_dict[n] for n in total_to_include] #turns list of names into list of IDs
+			print("included ids: ", included_ids) #overall
+			print("total num of IDs: ", len(neuron_dict), "num of potentially included IDs: ", len(included_ids))
+
+			other_neurons[(neurons!=nid) & (neurons!=0) & np.isin(neurons, included_ids)] = 1 #binary mask
+			print("final size of other_neurons mask in voxels: ", np.sum(other_neurons))
+
+
+
+			removed_neurons = []
+			for segid in np.unique(neurons):
+				if(segid not in included_ids):
+					removed_neurons.append(segid)
+			print("removed neurons: ", removed_neurons)
+			if(removed_neurons==[0]):
+				print("NO CHANGE for ", name)
+
+
+
+			print("LV")
+			expanded_others = expand_mask(other_neurons, lv_threshold, mask_res)
+			print("mask expanding done")
+			cache["intersections"] = mask_intersection((neuron_only, expanded_others))
+			print("size of intersection region: ", np.sum(cache["intersections"]))
+			print("mask intersection done")
+			total_num, nn_lv = calculate_vesicles_within(name, "intersections") #name of cache file
+			num_far = total_num-nn_lv
+			print("num outside of region: ", num_far)
+			del expanded_others, cache["intersections"]
+			gc.collect()
+			#append to individual row of the results output
+			results.append([name, neuron_id, neuron_type, "LV", total_num, nn_lv, num_far, lv_threshold])
+
+			print(f"{name} LV done \n")
+		
+
+
+			#cv
+			print("CV")
+			expanded_others = expand_mask(other_neurons, cv_threshold, mask_res)
+			print("mask expanding done")
+			cache["intersections"] = mask_intersection((neuron_only, expanded_others))
+			print("size of intersection region: ", np.sum(cache["intersections"]))
+			print("mask intersection done")
+			total_num, nn_lv = calculate_vesicles_within(name, "intersections", which=1) #name of cache file
+			num_far = total_num-nn_lv
+			print("num outside of region: ", num_far)
+			del expanded_others, cache["intersections"]
+			gc.collect()
+			#append to individual row of the results output
+			results.append([name, neuron_id, neuron_type, "CV", total_num, nn_lv, num_far, cv_threshold])
+			print(f"{name} CV done \n")
+
+
+
+			#dv
+			print("DV")
+			expanded_others = expand_mask(other_neurons, dv_threshold, mask_res)
+			print("mask expanding done")
+			cache["intersections"] = mask_intersection((neuron_only, expanded_others))
+			print("size of intersection region: ", np.sum(cache["intersections"]))
+			print("mask intersection done")
+			total_num, nn_lv = calculate_vesicles_within(name, "intersections", which=2) #name of cache file
+			num_far = total_num-nn_lv
+			print("num outside of region: ", num_far)
+			del expanded_others, cache["intersections"]
+			gc.collect()
+			#append to individual row of the results output
+			results.append([name, neuron_id, neuron_type, "DV", total_num, nn_lv, num_far, dv_threshold])
+			print(f"{name} DV done \n")
+
+
+
+			#dvh
+			print("DVH")
+			expanded_others = expand_mask(other_neurons, dvh_threshold, mask_res)
+			print("mask expanding done")
+			cache["intersections"] = mask_intersection((neuron_only, expanded_others))
+			print("size of intersection region: ", np.sum(cache["intersections"]))
+			print("mask intersection done")
+			total_num, nn_lv = calculate_vesicles_within(name, "intersections", which=3) #name of cache file
+			num_far = total_num-nn_lv
+			print("num outside of region: ", num_far)
+			del expanded_others, cache["intersections"]
+			gc.collect()
+			#append to individual row of the results output
+			results.append([name, neuron_id, neuron_type, "DVH", total_num, nn_lv, num_far, dvh_threshold])
+
+			print(f"{name} DVH done\n")
+
+
 
 	df = pd.DataFrame(results, columns=["Neuron", "Neuron ID", "Neuron type", "Vesicle type", "Total num", "Near neuron", "Not near neuron", "Nearness threshold (nm)"])
-	df.to_excel("/home/rothmr/hydra/sheet_exports/lv_near_counts.xlsx", index=False)
+	if(which_neurons=="all"):
+		export_path = "/home/rothmr/hydra/sheet_exports/lv_near_counts.xlsx"
+	elif(which_neurons=="sample"):
+		export_path = f"{sample_dir}sample_outputs/sample_near_counts.xlsx"
+	df.to_excel(export_path, index=False)
 	print("export done")
 	print("done")
 
